@@ -1,0 +1,144 @@
+---
+title: "Selection on within-individual variation in flowering time in Lathyrus vernus"
+subtitle: "Data preparation"
+author : "Alicia Valdés"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+options(tibble.width = Inf)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r load packages, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(moments)
+```
+
+# Read data from Excel file
+
+```{r}
+data_ids_87 <- read_excel("data/edited/individual_characteristics.xlsx", 
+                       sheet = "1987")
+data_ids_88 <- read_excel("data/edited/individual_characteristics.xlsx", 
+                       sheet = "1988")
+data_ids_89 <- read_excel("data/edited/individual_characteristics.xlsx", 
+                       sheet = "1989")
+```
+
+# Remove empty rows and columns, and standardized columns
+
+```{r}
+data_ids_87 <- data_ids_87 %>% drop_na(ID)%>% # Remove second, empty row
+  # and 3 rows at the bottom (one empty, two where mean and SD were calculated)
+  select(-c(...3, ...5, ...19, ...22))%>% # Remove 4 empty columns
+  select(-c(MeanSTD:IntactREL))
+data_ids_88 <- data_ids_88 %>% drop_na(ID)%>% # Remove second, empty row
+  select(-c(...3, ...5)) # Remove 2 empty columns
+data_ids_89 <- data_ids_89 %>% drop_na(ID)%>% # Remove second, empty row
+  select(-c(...3, ...5)) # Remove 2 empty columns
+nrow(data_ids_87)
+# 231 rows
+nrow(data_ids_88)
+# 169 rows
+nrow(data_ids_89)
+# 96 rows
+```
+
+# Rename columns
+
+```{r}
+data_ids_87 <- data_ids_87 %>% 
+  rename(id = ID, subplot = Subplot, composite_id = Ind, MFD = `Mean (MFD)`,
+         skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
+         dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
+         fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
+         n_preyed_seed = `Preyed seeds`, 
+         fitness = `Intact seeds (fitness)`,
+         n_seed_per_fr = `Seeds per fruit`,
+         prop_seed_preyed = `Proportion preyed`,
+         imp_seed_preyed = `Imputed values for seed number and predation`)
+data_ids_88 <- data_ids_88 %>% 
+  rename(id = ID, subplot = Subplot, composite_id = Ind, MFD = `Mean (MFD)`,
+         skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
+         dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
+         fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
+         n_preyed_seed = `Preyed seeds`, 
+         fitness = `Intact seeds (fitness)`,
+         imp_seed_preyed = `Imputed values for seed number and predation`)
+data_ids_89 <- data_ids_89 %>% 
+  rename(id = ID, subplot = Subplot, composite_id = Ind, MFD = `Mean (MFD)`,
+         skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
+         dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
+         fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
+         n_preyed_seed = `Preyed seeds`, 
+         fitness = `Intact seeds (fitness)`,
+         imp_seed_preyed = Imputed)
+```
+
+# Calculate number of seeds per fruit and proportion of seeds preyed in 1988-89
+
+```{r}
+data_ids_88 <- data_ids_88 %>%
+  mutate(n_seed_per_fr = ifelse(n_fr==0, NA, n_seed / n_fr), 
+         prop_seed_preyed = ifelse(n_seed==0, NA, n_preyed_seed / n_seed))
+data_ids_89 <- data_ids_89 %>%
+  mutate(n_seed_per_fr = ifelse(n_fr==0, NA, n_seed / n_fr), 
+         prop_seed_preyed = ifelse(n_seed==0, NA, n_preyed_seed / n_seed))
+```
+
+
+# Change column types
+
+```{r}
+data_ids_87 <- data_ids_87 %>% 
+  mutate(imp_seed_preyed = as.factor(imp_seed_preyed))
+data_ids_88 <- data_ids_88 %>% 
+  mutate(imp_seed_preyed = as.factor(imp_seed_preyed))
+data_ids_89 <- data_ids_89 %>% 
+  mutate(imp_seed_preyed = as.factor(imp_seed_preyed))
+# See if I keep integer values as "double"!
+```
+
+# Standardize traits and relativize fitness
+
+```{r}
+data_ids_87 <- data_ids_87 %>%
+  mutate(across(c(MFD:n_fl), scale, .names = "{col}_std"))%>%
+  mutate(fitness_rel = fitness / mean(fitness))
+data_ids_88 <- data_ids_88 %>%
+  mutate(across(c(MFD:n_fl), scale, .names = "{col}_std"))%>%
+  mutate(fitness_rel = fitness / mean(fitness))
+data_ids_89 <- data_ids_89 %>%
+  mutate(across(c(MFD:n_fl), scale, .names = "{col}_std"))%>%
+  mutate(fitness_rel = fitness / mean(fitness))
+```
+
+# Merge data for the 3 years
+
+```{r}
+data_ids_87 <- data_ids_87 %>%
+  mutate(year = as.integer(1987))
+data_ids_88 <- data_ids_88 %>%
+  mutate(year = as.integer(1988))
+data_ids_89 <- data_ids_89 %>%
+  mutate(year = as.integer(1989))
+data_ids <- full_join(full_join(data_ids_87,data_ids_88),data_ids_89)
+data_ids <- data_ids %>% mutate(year = as.factor(year))
+```
+
+
+
+
+```{r}
+sessionInfo()
+```
+
