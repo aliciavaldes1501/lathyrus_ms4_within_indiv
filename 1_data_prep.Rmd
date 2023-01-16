@@ -21,30 +21,49 @@ library(tidyverse)
 library(readxl)
 library(lubridate)
 library(moments)
+library(RColorBrewer)
+library(ggthemes)
 ```
 
-# Read data from Excel file
+```{r Define ggplot themes and palettes, include=FALSE}
+my_theme <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(legend.position="none")+theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+my_theme_legend <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+myPalette <- colorRampPalette(brewer.pal(11, "YlOrRd"))
+```
+
+# Read data for individuals from Excel file
 
 ```{r}
 data_ids_87 <- read_excel("data/edited/individual_characteristics.xlsx", 
-                       sheet = "1987")
+                       sheet = "1987_editsAV")
 data_ids_88 <- read_excel("data/edited/individual_characteristics.xlsx", 
-                       sheet = "1988")
+                       sheet = "1988_editsAV")
 data_ids_89 <- read_excel("data/edited/individual_characteristics.xlsx", 
-                       sheet = "1989")
+                       sheet = "1989_editsAV")
 ```
 
-# Remove empty rows and columns, and standardized columns
+# Read data for individual flowers from Excel files
 
 ```{r}
-data_ids_87 <- data_ids_87 %>% drop_na(ID)%>% # Remove second, empty row
-  # and 3 rows at the bottom (one empty, two where mean and SD were calculated)
-  select(-c(...3, ...5, ...19, ...22))%>% # Remove 4 empty columns
-  select(-c(MeanSTD:IntactREL))
-data_ids_88 <- data_ids_88 %>% drop_na(ID)%>% # Remove second, empty row
-  select(-c(...3, ...5)) # Remove 2 empty columns
-data_ids_89 <- data_ids_89 %>% drop_na(ID)%>% # Remove second, empty row
-  select(-c(...3, ...5)) # Remove 2 empty columns
+data_id_flowers_87 <- read_excel("data/edited/individual_flower_characteristics.xlsx", 
+                       sheet = "1987")
+data_id_flowers_88 <- read_excel("data/edited/individual_flower_characteristics.xlsx", 
+                       sheet = "1988")
+data_id_flowers_89 <- read_excel("data/edited/individual_flower_characteristics.xlsx", 
+                       sheet = "1989")
+data_Ind2_33_1989 <- read_excel("data/edited/individual_characteristics_Ind2_33_1989.xlsx",
+                                sheet = "to_R")
+```
+
+```{r}
 nrow(data_ids_87)
 # 231 rows
 nrow(data_ids_88)
@@ -52,30 +71,41 @@ nrow(data_ids_88)
 nrow(data_ids_89)
 # 96 rows
 ```
+# Error in 1989
+
+Ind = 2:33 appears twice, there was a problem with this Ind, I will remove those two records and add a new record for Ind 2:33 with all moments that were recalculated in Excel.
+
+```{r}
+subset(data_ids_89,Ind=="2:33")
+data_ids_89 <- data_ids_89 %>% filter(!(Ind=="2:33"))
+data_ids_89 <- bind_rows(data_ids_89,data_Ind2_33_1989)
+```
 
 # Rename columns
 
 ```{r}
 data_ids_87 <- data_ids_87 %>% 
-  rename(id = ID, subplot = Subplot, composite_id = Ind, MFD = `Mean (MFD)`,
+  rename(number = ID, subplot = Subplot, id = Ind, avFD = `Mean (MFD)`,
          skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
          dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
          fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
          n_preyed_seed = `Preyed seeds`, 
          fitness = `Intact seeds (fitness)`,
+         imp_seed_preyed = Imputed,
          n_seed_per_fr = `Seeds per fruit`,
-         prop_seed_preyed = `Proportion preyed`,
-         imp_seed_preyed = `Imputed values for seed number and predation`)
+         prop_seed_preyed = `Proportion preyed`)
 data_ids_88 <- data_ids_88 %>% 
-  rename(id = ID, subplot = Subplot, composite_id = Ind, MFD = `Mean (MFD)`,
+  rename(number = ID, subplot = Subplot, id = Ind, avFD = `Mean (MFD)`,
          skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
          dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
          fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
          n_preyed_seed = `Preyed seeds`, 
          fitness = `Intact seeds (fitness)`,
-         imp_seed_preyed = `Imputed values for seed number and predation`)
-data_ids_89 <- data_ids_89 %>% 
-  rename(id = ID, subplot = Subplot, composite_id = Ind, MFD = `Mean (MFD)`,
+         imp_seed_preyed = Imputed,
+         n_seed_per_fr = `Seeds per fruit`,
+         prop_seed_preyed = `Proportion preyed`)
+data_ids_89 <- data_ids_89 %>%
+  rename(number = ID, subplot = Subplot, id = Ind, avFD = `Mean (MFD)`,
          skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
          dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
          fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
@@ -84,17 +114,13 @@ data_ids_89 <- data_ids_89 %>%
          imp_seed_preyed = Imputed)
 ```
 
-# Calculate number of seeds per fruit and proportion of seeds preyed in 1988-89
+# Calculate number of seeds per fruit and proportion of seeds preyed in 1989
 
 ```{r}
-data_ids_88 <- data_ids_88 %>%
-  mutate(n_seed_per_fr = ifelse(n_fr==0, NA, n_seed / n_fr), 
-         prop_seed_preyed = ifelse(n_seed==0, NA, n_preyed_seed / n_seed))
 data_ids_89 <- data_ids_89 %>%
   mutate(n_seed_per_fr = ifelse(n_fr==0, NA, n_seed / n_fr), 
          prop_seed_preyed = ifelse(n_seed==0, NA, n_preyed_seed / n_seed))
 ```
-
 
 # Change column types
 
@@ -108,21 +134,224 @@ data_ids_89 <- data_ids_89 %>%
 # See if I keep integer values as "double"!
 ```
 
-# Standardize traits and relativize fitness
+# Transform dates
+
+The dates are given in terms of four- or five-day intervals after the first recording. Convert them to calendar dates, then to julian dates, and then to number of days after the vernal equinox.
+
+First create a table with information on each date for each year.
+
+```{r}
+dates <- tibble(year = as.factor(
+  c(rep("1987",10),rep("1988",10),rep("1989",10))),
+                date_num = rep(1:10,3), # Date in numeric format given in data
+                date_calendar = as.Date(
+                  ifelse(year==1987, seq(as.Date("1987-05-18"), 
+                                         by = 4, length.out = 10),
+                         # 1987: Start 18 May, 4-day intervals
+                         ifelse(year==1988, seq(as.Date("1988-05-15"),
+                                                by = 5, length.out = 10),
+                                # 1988: Start 15 May, 5-day intervals
+                                seq(as.Date("1989-05-07"), 
+                                    by = 5, length.out = 10))),
+                  # 1989: Start 7 May, 5-day intervals
+                  # Calendar date
+                  origin = "1970-01-01"),
+  date_julian = yday(date_calendar), # Julian date
+  date_vernal = ifelse(year==1987,date_calendar-as.Date("1987-03-21"),
+                       ifelse(year==1988,date_calendar-as.Date("1988-03-20"),
+                              date_calendar-as.Date("1989-03-20")))) 
+# Days after vernal equinox
+# Data on vernal equinox dates from https://data.giss.nasa.gov/ar5/srvernal.html
+```
+
+Calculate, for each year, the intercept and slope of the relationship among date_num (x)
+and date_vernal or date_calendar (y).
+
+```{r}
+dates <- dates %>%
+  group_by(year) %>%
+  mutate(date_intercept_v = ifelse(year==1987,min(date_vernal)-4,
+                                 min(date_vernal)-5),
+         date_intercept_c = as.Date(ifelse(year==1987,min(date_calendar)-4,
+                                 min(date_calendar)-5),origin = "1970-01-01"),
+         date_slope_v = (date_vernal-date_intercept_v)/date_num,
+         date_slope_c = (date_calendar-date_intercept_c)/date_num)
+dates_summary <- summarise(dates, 
+                           date_intercept_v = mean(date_intercept_v),
+                           date_intercept_c = mean(date_intercept_c),
+                           date_slope_v = mean(date_slope_v),
+                           date_slope_c = mean(date_slope_c))
+```
+
+In the data files for individuals for each year, transform FFD, MFD and LFD to calendar dates (FFD_c, MFD_c, LFD_c) and to days after vernal equinox (FFD_v, MFD_v, LFD_v).
 
 ```{r}
 data_ids_87 <- data_ids_87 %>%
-  mutate(across(c(MFD:n_fl), scale, .names = "{col}_std"))%>%
-  mutate(fitness_rel = fitness / mean(fitness))
+  mutate(FFD_c = filter(dates_summary, year==1987)$date_slope_c*FFD+
+           filter(dates_summary, year==1987)$date_intercept_c,
+         avFD_c = filter(dates_summary, year==1987)$date_slope_c*avFD+
+           filter(dates_summary, year==1987)$date_intercept_c,
+         LFD_c = filter(dates_summary, year==1987)$date_slope_c*LFD+
+           filter(dates_summary, year==1987)$date_intercept_c,
+         FFD_v = filter(dates_summary, year==1987)$date_slope_v*FFD+
+           filter(dates_summary, year==1987)$date_intercept_v,
+         avFD_v = filter(dates_summary, year==1987)$date_slope_v*avFD+
+           filter(dates_summary, year==1987)$date_intercept_v,
+         LFD_v = filter(dates_summary, year==1987)$date_slope_v*LFD+
+           filter(dates_summary, year==1987)$date_intercept_v)
 data_ids_88 <- data_ids_88 %>%
-  mutate(across(c(MFD:n_fl), scale, .names = "{col}_std"))%>%
-  mutate(fitness_rel = fitness / mean(fitness))
+  mutate(FFD_c = filter(dates_summary, year==1988)$date_slope_c*FFD+
+           filter(dates_summary, year==1988)$date_intercept_c,
+         avFD_c = filter(dates_summary, year==1988)$date_slope_c*avFD+
+           filter(dates_summary, year==1988)$date_intercept_c,
+         LFD_c = filter(dates_summary, year==1988)$date_slope_c*LFD+
+           filter(dates_summary, year==1988)$date_intercept_c,
+         FFD_v = filter(dates_summary, year==1988)$date_slope_v*FFD+
+           filter(dates_summary, year==1988)$date_intercept_v,
+         avFD_v = filter(dates_summary, year==1988)$date_slope_v*avFD+
+           filter(dates_summary, year==1988)$date_intercept_v,
+         LFD_v = filter(dates_summary, year==1988)$date_slope_v*LFD+
+           filter(dates_summary, year==1988)$date_intercept_v)
 data_ids_89 <- data_ids_89 %>%
-  mutate(across(c(MFD:n_fl), scale, .names = "{col}_std"))%>%
-  mutate(fitness_rel = fitness / mean(fitness))
+  mutate(FFD_c = filter(dates_summary, year==1989)$date_slope_c*FFD+
+           filter(dates_summary, year==1989)$date_intercept_c,
+         avFD_c = filter(dates_summary, year==1989)$date_slope_c*avFD+
+           filter(dates_summary, year==1989)$date_intercept_c,
+         LFD_c = filter(dates_summary, year==1989)$date_slope_c*LFD+
+           filter(dates_summary, year==1989)$date_intercept_c,
+         FFD_v = filter(dates_summary, year==1989)$date_slope_v*FFD+
+           filter(dates_summary, year==1989)$date_intercept_v,
+         avFD_v = filter(dates_summary, year==1989)$date_slope_v*avFD+
+           filter(dates_summary, year==1989)$date_intercept_v,
+         LFD_v = filter(dates_summary, year==1989)$date_slope_v*LFD+
+           filter(dates_summary, year==1989)$date_intercept_v)
 ```
 
-# Merge data for the 3 years
+# Standardize traits and relativize fitness within years
+
+```{r}
+data_ids_87 <- data_ids_87 %>%
+  mutate(across(c(avFD:n_fl), scale, .names = "{col}_std"))%>%
+  mutate(fitness_rel = fitness / mean(fitness))
+data_ids_88 <- data_ids_88 %>%
+  mutate(across(c(avFD:n_fl), scale, .names = "{col}_std"))%>%
+  mutate(fitness_rel = fitness / mean(fitness))
+data_ids_89 <- data_ids_89 %>%
+  mutate(across(c(avFD:n_fl), scale, .names = "{col}_std"))%>%
+  mutate(fitness_rel = fitness / mean(fitness))
+# When standardizing, we get the same result for FFD, MFD and LFD
+# than for FFD_v, MFD_v and LFD_v, so I used the first
+```
+
+# Recalculate moments with individual flower data
+
+## Data prep individual flower data
+
+```{r}
+data_id_flowers_87 <- data_id_flowers_87 %>%
+  select(RUTA,GENET...2,`New Phenoadj based on intervals`) %>%
+  mutate(id = paste(RUTA,GENET...2,sep=":"),
+         opening_date = `New Phenoadj based on intervals`) %>%
+  rename(subplot = RUTA, number = GENET...2) %>%
+  select(-`New Phenoadj based on intervals`)
+data_id_flowers_88 <- data_id_flowers_88 %>%
+  select(RUTA...1,GENET...2,`New Phenoadj based on intervals`) %>%
+  mutate(id = paste(RUTA...1,GENET...2,sep=":"),
+         opening_date = `New Phenoadj based on intervals`) %>%
+  rename(subplot = RUTA...1, number = GENET...2) %>%
+  select(-`New Phenoadj based on intervals`) %>%
+  filter(!(subplot==8|subplot==9))
+data_id_flowers_89 <- data_id_flowers_89 %>%
+  select(RUTA,GENET,`Corrected pheno`) %>%
+  mutate(id = paste(RUTA,GENET,sep=":"),
+         opening_date = `Corrected pheno`) %>%
+  rename(subplot = RUTA, number = GENET) %>%
+  select(-`Corrected pheno`)
+```
+
+See if the number of individuals in each subplot matches betwen individual data and individual flower data.
+
+```{r}
+data_ids_87%>%group_by(subplot)%>%summarise(n_indiv=n())
+data_id_flowers_87%>%group_by(subplot)%>%summarise(n_indiv=n_distinct(id))
+data_ids_88%>%group_by(subplot)%>%summarise(n_indiv=n())
+data_id_flowers_88%>%group_by(subplot)%>%summarise(n_indiv=n_distinct(id))
+data_ids_89%>%group_by(subplot)%>%summarise(n_indiv=n())
+data_id_flowers_89%>%group_by(subplot)%>%summarise(n_indiv=n_distinct(id))
+```
+
+Yes, it matches.
+
+See if the id values match between individual data and individual flower data.
+
+```{r}
+unique(anti_join(data_id_flowers_87, data_ids_87, by = "id")$id)
+# Show values of id from data_id_flowers_87 that are not in data_ids_87
+unique(anti_join(data_id_flowers_88, data_ids_88, by = "id")$id)
+# Show values of id from data_id_flowers_88 that are not in data_ids_88
+unique(anti_join(data_id_flowers_89, data_ids_89, by = "id")$id)
+# Show values of id from data_id_flowers_89 that are not in data_ids_89
+```
+
+Yes, they match.
+
+## Recalculate moments
+
+I have recalculated all moments to check that everything matches with Johan's data for individuals (I might remove other moments later and keep only new versions of skewness and kurtosis).
+
+```{r}
+moments_87 <- data_id_flowers_87 %>%
+  group_by(id) %>%
+  summarise(avFD_a=mean(opening_date),FFD_a=min(opening_date),
+            MFD_a=median(opening_date), # Calculate also median
+            LFD_a=max(opening_date),SD_a=sd(opening_date),
+            var_a=var(opening_date), # Calculate also variance
+            skew_a=ifelse(n()>2,skewness(opening_date),NA),
+            kurt_a=ifelse(n()>2,kurtosis(opening_date),NA),
+            # Calculate skewness and kurtosis when n_fl>2
+            dur_a=LFD_a-FFD_a,
+            skew_calc=ifelse(n()>2,
+                             (sum((opening_date-mean(opening_date))^3)/n())/
+                               (sum((opening_date-mean(opening_date))^2)/
+                                  n())^(3/2),NA),
+            skew_calc_excel=(sqrt(n()*(n()-1))/(n()-2))*skew_calc) %>%
+  mutate(year=as.factor(1987))
+moments_88 <- data_id_flowers_88 %>%
+  group_by(id) %>%
+  summarise(avFD_a=mean(opening_date),FFD_a=min(opening_date),
+            MFD_a=median(opening_date), # Calculate also median
+            LFD_a=max(opening_date),SD_a=sd(opening_date),
+            var_a=var(opening_date), # Calculate also variance
+            skew_a=ifelse(n()>2,skewness(opening_date),NA),
+            kurt_a=ifelse(n()>2,kurtosis(opening_date),NA),
+            # Calculate skewness and kurtosis when n_fl>2
+            dur_a=LFD_a-FFD_a,
+            skew_calc=ifelse(n()>2,
+                             (sum((opening_date-mean(opening_date))^3)/n())/
+                               (sum((opening_date-mean(opening_date))^2)/
+                                  n())^(3/2),NA),
+            skew_calc_excel=(sqrt(n()*(n()-1))/(n()-2))*skew_calc) %>%  
+  mutate(year=as.factor(1988))
+moments_89 <- data_id_flowers_89 %>%
+  group_by(id) %>%
+  summarise(avFD_a=mean(opening_date),FFD_a=min(opening_date),
+            MFD_a=median(opening_date), # Calculate also median
+            LFD_a=max(opening_date),SD_a=sd(opening_date),
+            var_a=var(opening_date), # Calculate also variance
+            skew_a=ifelse(n()>2,skewness(opening_date),NA),
+            kurt_a=ifelse(n()>2,kurtosis(opening_date),NA),
+            # Calculate skewness and kurtosis when n_fl>2
+            dur_a=LFD_a-FFD_a,
+            skew_calc=ifelse(n()>2,
+                             (sum((opening_date-mean(opening_date))^3)/n())/
+                               (sum((opening_date-mean(opening_date))^2)/
+                                  n())^(3/2),NA),
+            skew_calc_excel=(sqrt(n()*(n()-1))/(n()-2))*skew_calc) %>%  
+  mutate(year=as.factor(1989))
+moments <- full_join(full_join(moments_87,moments_88),moments_89)
+```
+
+# Merge Johan's data for individuals for the 3 years
 
 ```{r}
 data_ids_87 <- data_ids_87 %>%
@@ -135,8 +364,102 @@ data_ids <- full_join(full_join(data_ids_87,data_ids_88),data_ids_89)
 data_ids <- data_ids %>% mutate(year = as.factor(year))
 ```
 
+# Merge with my calculated moments
+
+```{r}
+data_ids <- data_ids %>%
+  mutate(across(c(avFD_std:n_fl_std), as.vector))
+```
+
+```{r}
+data_ids <- full_join(data_ids, moments)
+```
+
+# Compare values of moments between Johan's calculations and mine
+
+In how many ids are my calculations different from Johan's?
+
+```{r}
+nrow(data_ids %>% filter(!near(avFD_a,avFD)) %>%
+       # Using near() to avoid small differences in decimals
+       select(year,number,subplot,id,avFD,avFD_a))
+# None after editing data
+nrow(data_ids %>% filter(!near(FFD_a,FFD))%>%
+       select(year,number,subplot,id,FFD,FFD_a))
+# None after editing data
+nrow(data_ids %>% filter(!near(LFD_a,LFD))%>%
+       select(year,number,subplot,id,LFD,LFD_a))
+# None after editing data
+nrow(data_ids %>% filter(!near(SD_a,SD))%>%
+       select(year,number,subplot,id,SD,SD_a))
+# None after editing data
+nrow(data_ids %>% filter(!near(skew_a,skew))%>%
+       select(year,number,subplot,id,skew,skew_a))
+# 415 rows are different
+nrow(data_ids %>% filter(!near(kurt_a,kurt))%>%
+       select(year,number,subplot,id,kurt,kurt_a))
+# 377 rows are different
+nrow(data_ids %>% filter(!near(dur_a,dur))%>%
+       select(year,number,subplot,id,dur,dur_a))
+# None after editing data
+```
+
+All moments have the same values except for skewness and kurtosis.
+
+The skewness function that I used (from the moments package) calculates g1, the skewness of a sample based on the third moment of the data divided by the cube root of the second moment of the data, using the formula:
+
+g1=(sum((X - mean(X))^3)/n)/(sum((X - mean(X))^2)/n)^(3/2)
+
+This is the formula for sample skewness, also known as Pearson's moment coefficient of skewness.
+
+Excel uses the adjusted Fisher–Pearson standardized moment coefficient G1:
+
+G1=(sqrt(n()*(n()-1))/(n()-2))*g1
 
 
+The kurtosis function that I used (from the moments package) calculates Pearson's measure of kurtosis:
+
+n*(sum((X-mean(X))^4))/((sum((X-mean(X))^2)^2))
+
+Excel uses:
+
+((n*(n+1))/((n-1)*(n-2)*(n-3))*sum(((X-mean(X))/sd(X))^4))-((3*((n-1)^2))/((n-2)*(n-3)))
+
+# HERE
+
+Calculate kurt_calc and kurt_calc_Excel
+
+```{r}
+
+
+
+```
+
+
+## Plots of skewness and kurtosis
+
+```{r}
+ggplot(data_ids,aes(x=skew,y=skew_a))+
+  geom_vline(xintercept=0,linetype=2)+geom_hline(yintercept=0,linetype=2)+
+  geom_point(shape=20,size=3,alpha=0.25,color="darkred")+
+  xlab("Skewness (Excel)")+ylab("Skewness (R)")
+```
+
+
+```{r}
+ggplot(data_ids,aes(x=kurt,y=kurt_a))+
+  geom_point(shape=20,size=3,alpha=0.25,color="darkred")+
+  xlab("Kurtosis (Excel)")+ylab("Kurtosis (R)")
+```
+
+
+# Save clean data as .csv
+
+```{r}
+write_csv(data_ids,"data/clean/data_ids.csv")
+````
+
+# Session info
 
 ```{r}
 sessionInfo()

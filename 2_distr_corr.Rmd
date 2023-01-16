@@ -1,0 +1,170 @@
+---
+title: "Selection on within-individual variation in flowering time in Lathyrus vernus"
+subtitle: "Distributions and correlations among phenological parameters"
+author : "Alicia Valdés"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+options(tibble.width = Inf)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r load packages, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(lubridate)
+library(moments)
+library(RColorBrewer)
+library(ggthemes)
+library(ggridges)
+```
+
+```{r Define ggplot themes and palettes, include=FALSE}
+my_theme <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(legend.position="none")+theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+my_theme_legend <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+myPalette <- colorRampPalette(brewer.pal(11, "YlOrRd"))
+```
+
+# Read clean data from .csv file
+
+```{r}
+data_ids <- read_csv("data/clean/data_ids.csv")
+data_ids$imp_seed_preyed <- as.factor(data_ids$imp_seed_preyed)
+data_ids$year <- as.factor(data_ids$year)
+data_ids$variance <- data_ids$SD^2 # Calculate variance
+```
+
+# Distributions of phenological parameters
+
+## FFD, MFD and LFD
+
+```{r fig.height=5, fig.width=9}
+data_ids%>%select(year,id,FFD_c,MFD_c,LFD_c)%>%pivot_longer(cols=FFD_c:LFD_c,
+                                                       names_to="name")%>%
+  ggplot(aes(x=update(value,year=2000),y=year,fill=name,color=name))+
+  my_theme_legend()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)+
+  labs(x="Date",y="Year",fill=NULL,color=NULL)+
+  scale_fill_discrete(limits=c("FFD_c", "MFD_c", "LFD_c"), 
+                      labels = c("FFD", "MFD", "LFD"))+
+  scale_color_discrete(limits=c("FFD_c", "MFD_c", "LFD_c"), 
+                       labels = c("FFD", "MFD", "LFD"))+
+  scale_x_date(date_labels="%b %d",date_breaks  ="4 days")
+ggplot(data_ids,aes(x=update(FFD_c,year=2000),y=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(stat = "binline", bins = 20,draw_baseline = FALSE,
+                      alpha=.4,scale=1,size=0.75)+
+  labs(x="FFD",y="Year")
+ggplot(data_ids,aes(x=update(MFD_c,year=2000),y=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(stat = "binline", bins = 20,draw_baseline = FALSE,
+                      alpha=.4,scale=1,size=0.75)+
+  labs(x="MFD",y="Year")
+ggplot(data_ids,aes(x=update(LFD_c,year=2000),y=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(stat = "binline", bins = 20,draw_baseline = FALSE,
+                      alpha=.4,scale=1,size=0.75)+
+  labs(x="LFD",y="Year")
+```
+
+## Duration of flowering
+
+```{r}
+ggplot(data_ids,aes(x=dur,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)+
+  labs(x="Duration of flowering (days)",y="Year")
+ggplot(data_ids,aes(x=dur,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(stat = "binline", bins = 20,draw_baseline = FALSE,
+                      alpha=.4,scale=1,size=0.75)+
+  labs(x="Duration of flowering (days)",y="Year")
+```
+
+## Standard deviation and variance
+
+```{r}
+ggplot(data_ids,aes(x=SD,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)+
+  labs(x="SD",y="Year")
+ggplot(data_ids,aes(x=SD,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(stat = "binline", bins = 20,draw_baseline = FALSE,
+                      alpha=.4,scale=1,size=0.75)+
+  labs(x="SD",y="Year")
+ggplot(data_ids,aes(x=variance,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)+
+  labs(x="Variance",y="Year")
+ggplot(data_ids,aes(x=variance,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  geom_density_ridges(stat = "binline", bins = 20,draw_baseline = FALSE,
+                      alpha=.4,scale=1,size=0.75)+
+  labs(x="Variance",y="Year")
+```
+
+## Skewness and kurtosis
+
+```{r}
+ggplot(data_ids,aes(x=skew,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  labs(x="Skewness",y="Year")+
+  # annotate("rect",xmin=-1,xmax=-0.5,ymin=-Inf,ymax=Inf,alpha=0.1, fill="black")+
+  # annotate("rect",xmin=0.5,xmax=1,ymin=-Inf,ymax=Inf,alpha=0.1, fill="black")+
+  # annotate("rect",xmin=-Inf,xmax=-1,ymin=-Inf,ymax=Inf,alpha=0.2, fill="black")+
+  # annotate("rect",xmin=1,xmax=Inf,ymin=-Inf,ymax=Inf,alpha=0.2, fill="black")+
+  geom_density_ridges(alpha=.5,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)
+ggplot(data_ids,aes(x=kurt,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  labs(x="Kurtosis",y="Year")+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)
+```
+
+
+# Correlations among phenological parameters
+
+```{r}
+
+```
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```
+
