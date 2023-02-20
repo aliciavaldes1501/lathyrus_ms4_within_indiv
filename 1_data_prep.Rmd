@@ -23,6 +23,7 @@ library(lubridate)
 library(moments)
 library(RColorBrewer)
 library(ggthemes)
+library(ggridges)
 ```
 
 ```{r Define ggplot themes and palettes, include=FALSE}
@@ -134,115 +135,6 @@ data_ids_89 <- data_ids_89 %>%
 # See if I keep integer values as "double"!
 ```
 
-# Transform dates
-
-The dates are given in terms of four- or five-day intervals after the first recording. Convert them to calendar dates, then to julian dates, and then to number of days after the vernal equinox.
-
-First create a table with information on each date for each year.
-
-```{r}
-dates <- tibble(year = as.factor(
-  c(rep("1987",10),rep("1988",10),rep("1989",10))),
-                date_num = rep(1:10,3), # Date in numeric format given in data
-                date_calendar = as.Date(
-                  ifelse(year==1987, seq(as.Date("1987-05-18"), 
-                                         by = 4, length.out = 10),
-                         # 1987: Start 18 May, 4-day intervals
-                         ifelse(year==1988, seq(as.Date("1988-05-15"),
-                                                by = 5, length.out = 10),
-                                # 1988: Start 15 May, 5-day intervals
-                                seq(as.Date("1989-05-07"), 
-                                    by = 5, length.out = 10))),
-                  # 1989: Start 7 May, 5-day intervals
-                  # Calendar date
-                  origin = "1970-01-01"),
-  date_julian = yday(date_calendar), # Julian date
-  date_vernal = ifelse(year==1987,date_calendar-as.Date("1987-03-21"),
-                       ifelse(year==1988,date_calendar-as.Date("1988-03-20"),
-                              date_calendar-as.Date("1989-03-20")))) 
-# Days after vernal equinox
-# Data on vernal equinox dates from https://data.giss.nasa.gov/ar5/srvernal.html
-```
-
-Calculate, for each year, the intercept and slope of the relationship among date_num (x)
-and date_vernal or date_calendar (y).
-
-```{r}
-dates <- dates %>%
-  group_by(year) %>%
-  mutate(date_intercept_v = ifelse(year==1987,min(date_vernal)-4,
-                                 min(date_vernal)-5),
-         date_intercept_c = as.Date(ifelse(year==1987,min(date_calendar)-4,
-                                 min(date_calendar)-5),origin = "1970-01-01"),
-         date_slope_v = (date_vernal-date_intercept_v)/date_num,
-         date_slope_c = (date_calendar-date_intercept_c)/date_num)
-dates_summary <- summarise(dates, 
-                           date_intercept_v = mean(date_intercept_v),
-                           date_intercept_c = mean(date_intercept_c),
-                           date_slope_v = mean(date_slope_v),
-                           date_slope_c = mean(date_slope_c))
-```
-
-In the data files for individuals for each year, transform FFD, MFD and LFD to calendar dates (FFD_c, MFD_c, LFD_c) and to days after vernal equinox (FFD_v, MFD_v, LFD_v).
-
-```{r}
-data_ids_87 <- data_ids_87 %>%
-  mutate(FFD_c = filter(dates_summary, year==1987)$date_slope_c*FFD+
-           filter(dates_summary, year==1987)$date_intercept_c,
-         avFD_c = filter(dates_summary, year==1987)$date_slope_c*avFD+
-           filter(dates_summary, year==1987)$date_intercept_c,
-         LFD_c = filter(dates_summary, year==1987)$date_slope_c*LFD+
-           filter(dates_summary, year==1987)$date_intercept_c,
-         FFD_v = filter(dates_summary, year==1987)$date_slope_v*FFD+
-           filter(dates_summary, year==1987)$date_intercept_v,
-         avFD_v = filter(dates_summary, year==1987)$date_slope_v*avFD+
-           filter(dates_summary, year==1987)$date_intercept_v,
-         LFD_v = filter(dates_summary, year==1987)$date_slope_v*LFD+
-           filter(dates_summary, year==1987)$date_intercept_v)
-data_ids_88 <- data_ids_88 %>%
-  mutate(FFD_c = filter(dates_summary, year==1988)$date_slope_c*FFD+
-           filter(dates_summary, year==1988)$date_intercept_c,
-         avFD_c = filter(dates_summary, year==1988)$date_slope_c*avFD+
-           filter(dates_summary, year==1988)$date_intercept_c,
-         LFD_c = filter(dates_summary, year==1988)$date_slope_c*LFD+
-           filter(dates_summary, year==1988)$date_intercept_c,
-         FFD_v = filter(dates_summary, year==1988)$date_slope_v*FFD+
-           filter(dates_summary, year==1988)$date_intercept_v,
-         avFD_v = filter(dates_summary, year==1988)$date_slope_v*avFD+
-           filter(dates_summary, year==1988)$date_intercept_v,
-         LFD_v = filter(dates_summary, year==1988)$date_slope_v*LFD+
-           filter(dates_summary, year==1988)$date_intercept_v)
-data_ids_89 <- data_ids_89 %>%
-  mutate(FFD_c = filter(dates_summary, year==1989)$date_slope_c*FFD+
-           filter(dates_summary, year==1989)$date_intercept_c,
-         avFD_c = filter(dates_summary, year==1989)$date_slope_c*avFD+
-           filter(dates_summary, year==1989)$date_intercept_c,
-         LFD_c = filter(dates_summary, year==1989)$date_slope_c*LFD+
-           filter(dates_summary, year==1989)$date_intercept_c,
-         FFD_v = filter(dates_summary, year==1989)$date_slope_v*FFD+
-           filter(dates_summary, year==1989)$date_intercept_v,
-         avFD_v = filter(dates_summary, year==1989)$date_slope_v*avFD+
-           filter(dates_summary, year==1989)$date_intercept_v,
-         LFD_v = filter(dates_summary, year==1989)$date_slope_v*LFD+
-           filter(dates_summary, year==1989)$date_intercept_v)
-```
-
-# Standardize traits and relativize fitness within years
-
-```{r}
-data_ids_87 <- data_ids_87 %>%
-  mutate(across(c(avFD:n_fl), scale, .names = "{col}_std"))%>%
-  mutate(fitness_rel = fitness / mean(fitness))
-data_ids_88 <- data_ids_88 %>%
-  mutate(across(c(avFD:n_fl), scale, .names = "{col}_std"))%>%
-  mutate(fitness_rel = fitness / mean(fitness))
-data_ids_89 <- data_ids_89 %>%
-  mutate(across(c(avFD:n_fl), scale, .names = "{col}_std"))%>%
-  mutate(fitness_rel = fitness / mean(fitness))
-# When standardizing, we get the same result for FFD, MFD and LFD
-# than for FFD_v, MFD_v and LFD_v, so I used the first
-```
-
 # Recalculate moments with individual flower data
 
 ## Data prep individual flower data
@@ -309,12 +201,7 @@ moments_87 <- data_id_flowers_87 %>%
             skew_a=ifelse(n()>2,skewness(opening_date),NA),
             kurt_a=ifelse(n()>2,kurtosis(opening_date),NA),
             # Calculate skewness and kurtosis when n_fl>2
-            dur_a=LFD_a-FFD_a,
-            skew_calc=ifelse(n()>2,
-                             (sum((opening_date-mean(opening_date))^3)/n())/
-                               (sum((opening_date-mean(opening_date))^2)/
-                                  n())^(3/2),NA),
-            skew_calc_excel=(sqrt(n()*(n()-1))/(n()-2))*skew_calc) %>%
+            dur_a=LFD_a-FFD_a) %>%
   mutate(year=as.factor(1987))
 moments_88 <- data_id_flowers_88 %>%
   group_by(id) %>%
@@ -325,12 +212,7 @@ moments_88 <- data_id_flowers_88 %>%
             skew_a=ifelse(n()>2,skewness(opening_date),NA),
             kurt_a=ifelse(n()>2,kurtosis(opening_date),NA),
             # Calculate skewness and kurtosis when n_fl>2
-            dur_a=LFD_a-FFD_a,
-            skew_calc=ifelse(n()>2,
-                             (sum((opening_date-mean(opening_date))^3)/n())/
-                               (sum((opening_date-mean(opening_date))^2)/
-                                  n())^(3/2),NA),
-            skew_calc_excel=(sqrt(n()*(n()-1))/(n()-2))*skew_calc) %>%  
+            dur_a=LFD_a-FFD_a) %>%  
   mutate(year=as.factor(1988))
 moments_89 <- data_id_flowers_89 %>%
   group_by(id) %>%
@@ -341,12 +223,7 @@ moments_89 <- data_id_flowers_89 %>%
             skew_a=ifelse(n()>2,skewness(opening_date),NA),
             kurt_a=ifelse(n()>2,kurtosis(opening_date),NA),
             # Calculate skewness and kurtosis when n_fl>2
-            dur_a=LFD_a-FFD_a,
-            skew_calc=ifelse(n()>2,
-                             (sum((opening_date-mean(opening_date))^3)/n())/
-                               (sum((opening_date-mean(opening_date))^2)/
-                                  n())^(3/2),NA),
-            skew_calc_excel=(sqrt(n()*(n()-1))/(n()-2))*skew_calc) %>%  
+            dur_a=LFD_a-FFD_a) %>%  
   mutate(year=as.factor(1989))
 moments <- full_join(full_join(moments_87,moments_88),moments_89)
 ```
@@ -365,11 +242,6 @@ data_ids <- data_ids %>% mutate(year = as.factor(year))
 ```
 
 # Merge with my calculated moments
-
-```{r}
-data_ids <- data_ids %>%
-  mutate(across(c(avFD_std:n_fl_std), as.vector))
-```
 
 ```{r}
 data_ids <- full_join(data_ids, moments)
@@ -416,7 +288,6 @@ Excel uses the adjusted Fisher–Pearson standardized moment coefficient G1:
 
 G1=(sqrt(n()*(n()-1))/(n()-2))*g1
 
-
 The kurtosis function that I used (from the moments package) calculates Pearson's measure of kurtosis:
 
 n*(sum((X-mean(X))^4))/((sum((X-mean(X))^2)^2))
@@ -424,16 +295,6 @@ n*(sum((X-mean(X))^4))/((sum((X-mean(X))^2)^2))
 Excel uses:
 
 ((n*(n+1))/((n-1)*(n-2)*(n-3))*sum(((X-mean(X))/sd(X))^4))-((3*((n-1)^2))/((n-2)*(n-3)))
-
-# HERE
-
-Calculate kurt_calc and kurt_calc_Excel
-
-```{r}
-
-
-
-```
 
 
 ## Plots of skewness and kurtosis
@@ -445,19 +306,133 @@ ggplot(data_ids,aes(x=skew,y=skew_a))+
   xlab("Skewness (Excel)")+ylab("Skewness (R)")
 ```
 
-
 ```{r}
 ggplot(data_ids,aes(x=kurt,y=kurt_a))+
   geom_point(shape=20,size=3,alpha=0.25,color="darkred")+
   xlab("Kurtosis (Excel)")+ylab("Kurtosis (R)")
 ```
 
+```{r}
+ggplot(data_ids,aes(x=skew,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  labs(x="Skewness_Excel",y="Year")+
+  geom_density_ridges(alpha=.5,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)
+ggplot(data_ids,aes(x=skew_a,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  labs(x="Skewness_R",y="Year")+
+  geom_density_ridges(alpha=.5,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)
+ggplot(data_ids,aes(x=kurt,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  labs(x="Kurtosis_Excel",y="Year")+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)
+ggplot(data_ids,aes(x=kurt_a,y=year,fill=year,color=year))+
+  my_theme()+
+  theme(panel.grid = element_line(color="grey",size=0.1,linetype=3))+
+  labs(x="Kurtosis_R",y="Year")+
+  geom_density_ridges(alpha=.4,scale=1,quantile_lines=TRUE,
+                      quantile_fun=function(x,...)mean(x),size=0.75)
+```
+
+So far I will keep only my calculated moments
+
+# Keep only my calculated moments
+
+```{r}
+data_ids<-data_ids%>%
+  select(number,subplot,id,n_fl,n_fr,fr_init,n_seed,n_preyed_seed,
+                 fitness,imp_seed_preyed,n_seed_per_fr,prop_seed_preyed,year,
+                 avFD_a,FFD_a,MFD_a,LFD_a,SD_a,var_a,skew_a,kurt_a,dur_a)%>%
+  rename_at(vars(ends_with("_a")), ~sub("_a","",.))
+```
+
+# Transform dates
+
+The dates are given in terms of four- or five-day intervals after the first recording. Convert them to calendar dates, then to julian dates, and then to number of days after the vernal equinox.
+
+First create a table with information on each date for each year.
+
+```{r}
+dates <- tibble(year = as.factor(
+  c(rep("1987",10),rep("1988",10),rep("1989",10))),
+                date_num = rep(1:10,3), # Date in numeric format given in data
+                date_calendar = as.Date(
+                  ifelse(year==1987, seq(as.Date("1987-05-18"), 
+                                         by = 4, length.out = 10),
+                         # 1987: Start 18 May, 4-day intervals
+                         ifelse(year==1988, seq(as.Date("1988-05-15"),
+                                                by = 5, length.out = 10),
+                                # 1988: Start 15 May, 5-day intervals
+                                seq(as.Date("1989-05-07"), 
+                                    by = 5, length.out = 10))),
+                  # 1989: Start 7 May, 5-day intervals
+                  # Calendar date
+                  origin = "1970-01-01"),
+  date_julian = yday(date_calendar), # Julian date
+  date_vernal = ifelse(year==1987,date_calendar-as.Date("1987-03-21"),
+                       ifelse(year==1988,date_calendar-as.Date("1988-03-20"),
+                              date_calendar-as.Date("1989-03-20")))) 
+# Days after vernal equinox
+# Data on vernal equinox dates from https://data.giss.nasa.gov/ar5/srvernal.html
+```
+
+Calculate, for each year, the intercept and slope of the relationship among date_num (x)
+and date_vernal or date_calendar (y).
+
+```{r}
+dates <- dates %>%
+  group_by(year) %>%
+  mutate(date_intercept_v = ifelse(year==1987,min(date_vernal)-4,
+                                 min(date_vernal)-5),
+         date_intercept_c = as.Date(ifelse(year==1987,min(date_calendar)-4,
+                                 min(date_calendar)-5),origin = "1970-01-01"),
+         date_slope_v = (date_vernal-date_intercept_v)/date_num,
+         date_slope_c = (date_calendar-date_intercept_c)/date_num)
+dates_summary <- summarise(dates, 
+                           date_intercept_v = mean(date_intercept_v),
+                           date_intercept_c = mean(date_intercept_c),
+                           date_slope_v = mean(date_slope_v),
+                           date_slope_c = mean(date_slope_c))
+```
+
+Transform avFD, FFD, MFD and LFD to calendar dates (avFFD_c, FFD_c, MFD_c, LFD_c) and to days after vernal equinox (avFFD_v, FFD_v, MFD_v, LFD_v).
+
+```{r}
+data_ids <- data_ids %>% 
+  left_join(dates_summary, by = c("year" = "year")) %>%
+  mutate(avFD_c = date_slope_c * avFD + date_intercept_c,
+         FFD_c = date_slope_c * FFD + date_intercept_c,
+         MFD_c = date_slope_c * MFD + date_intercept_c,
+         LFD_c = date_slope_c * LFD + date_intercept_c,
+         avFD_v = date_slope_v * avFD + date_intercept_v,
+         FFD_v = date_slope_v * FFD + date_intercept_v,
+         MFD_v = date_slope_v * MFD + date_intercept_v,
+         LFD_v = date_slope_v * LFD + date_intercept_v)
+```
+
+# Standardize traits and relativize fitness within years
+
+```{r}
+data_ids<-data_ids%>%
+  group_by(year)%>%
+  mutate(across(c(n_fl,avFD:dur), scale, .names = "{col}_std"))%>%
+  mutate(across(c(n_fl_std:dur_std),as.vector))%>%
+  mutate(fitness_rel = fitness / mean(fitness))%>%
+  ungroup()
+# When standardizing, we get the same result for FFD, MFD and LFD
+# than for FFD_v, MFD_v and LFD_v, so I used the first
+```
 
 # Save clean data as .csv
 
 ```{r}
 write_csv(data_ids,"data/clean/data_ids.csv")
-````
+```
 
 # Session info
 

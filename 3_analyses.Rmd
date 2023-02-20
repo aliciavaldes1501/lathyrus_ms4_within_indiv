@@ -1,0 +1,2232 @@
+---
+title: "Selection on within-individual variation in flowering time in Lathyrus vernus"
+subtitle: "Analyses of relationships between phenological traits and fruit initiation and pre-dispersal seed predation, and analyses of phenotypic selection on phenological traits"
+author : "Alicia Valdés"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+options(tibble.width = Inf)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r load packages, include=FALSE}
+library(tidyverse)
+library(jtools)
+library(ggeffects)
+library(glmmTMB)
+library(DHARMa)
+library(RColorBrewer)
+library(gridExtra)
+library(ggthemes)
+library(ggfortify)
+```
+
+```{r Define ggplot themes and palettes, include=FALSE}
+my_theme <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(legend.position="none")+theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+my_theme_legend <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+myPalette <- colorRampPalette(brewer.pal(11, "YlOrRd"))
+```
+
+# Read clean data from .csv file
+
+```{r}
+data_ids <- read_csv("data/clean/data_ids.csv")
+data_ids$imp_seed_preyed <- as.factor(data_ids$imp_seed_preyed)
+data_ids$year <- as.factor(data_ids$year)
+```
+
+# FRUIT INITIATION
+
+Using standardized traits and subplot as a random effect. One model per year.
+
+## Average FD
+
+### Models
+
+```{r}
+fr_init_avFD_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~avFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_avFD_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~avFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_avFD_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~avFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_avFD_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~avFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_avFD_87)
+summary(fr_init_avFD_88)
+summary(fr_init_avFD_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_avFD_89_glm)
+```
+
+Fruit initiation significantly increases with earlier average FD in the three years.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_avFD_87 <- simulateResiduals(fittedModel = fr_init_avFD_87, n = 5000) 
+sim_fr_init_avFD_88 <- simulateResiduals(fittedModel = fr_init_avFD_88, n = 5000) 
+sim_fr_init_avFD_89 <- simulateResiduals(fittedModel = fr_init_avFD_89, n = 5000) 
+sim_fr_init_avFD_89_glm <- simulateResiduals(fittedModel = fr_init_avFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_avFD_87,quantreg=T) 
+plot(sim_fr_init_avFD_88,quantreg=T)
+plot(sim_fr_init_avFD_89,quantreg=T)
+plot(sim_fr_init_avFD_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_avFD_87) # OK
+testDispersion(sim_fr_init_avFD_88) # OK
+testDispersion(sim_fr_init_avFD_89) # OK
+testDispersion(sim_fr_init_avFD_89_glm) # OK
+```
+
+## FFD
+
+### Models
+
+```{r}
+fr_init_FFD_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~FFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_FFD_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~FFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_FFD_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~FFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_FFD_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~FFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_FFD_87)
+summary(fr_init_FFD_88)
+summary(fr_init_FFD_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_FFD_89_glm)
+```
+
+Fruit initiation significantly increases with earlier FFD in the three years.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_avFD_87 <- simulateResiduals(fittedModel = fr_init_avFD_87, n = 5000) 
+sim_fr_init_avFD_88 <- simulateResiduals(fittedModel = fr_init_avFD_88, n = 5000) 
+sim_fr_init_avFD_89 <- simulateResiduals(fittedModel = fr_init_avFD_89, n = 5000) 
+sim_fr_init_avFD_89_glm <- simulateResiduals(fittedModel = fr_init_avFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_avFD_87,quantreg=T) 
+plot(sim_fr_init_avFD_88,quantreg=T)
+plot(sim_fr_init_avFD_89,quantreg=T)
+plot(sim_fr_init_avFD_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_avFD_87) # OK
+testDispersion(sim_fr_init_avFD_88) # OK
+testDispersion(sim_fr_init_avFD_89) # OK
+testDispersion(sim_fr_init_avFD_89_glm) # OK
+```
+
+```{r}
+testZeroInflation(sim_fr_init_avFD_87) # OK
+testZeroInflation(sim_fr_init_avFD_88) # OK
+testZeroInflation(sim_fr_init_avFD_89) # OK
+testZeroInflation(sim_fr_init_avFD_89_glm) # OK
+```
+
+## MFD
+
+### Models
+
+```{r}
+fr_init_MFD_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~MFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_MFD_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~MFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_MFD_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~MFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_MFD_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~MFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_MFD_87)
+summary(fr_init_MFD_88)
+summary(fr_init_MFD_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_MFD_89_glm)
+```
+
+Fruit initiation significantly increases with earlier MFD in the three years.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_MFD_87 <- simulateResiduals(fittedModel = fr_init_MFD_87, n = 5000) 
+sim_fr_init_MFD_88 <- simulateResiduals(fittedModel = fr_init_MFD_88, n = 5000) 
+sim_fr_init_MFD_89 <- simulateResiduals(fittedModel = fr_init_MFD_89, n = 5000) 
+sim_fr_init_MFD_89_glm <- simulateResiduals(fittedModel = fr_init_MFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_MFD_87,quantreg=T) 
+plot(sim_fr_init_MFD_88,quantreg=T)
+plot(sim_fr_init_MFD_89,quantreg=T)
+plot(sim_fr_init_MFD_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_MFD_87) # OK
+testDispersion(sim_fr_init_MFD_88) # OK
+testDispersion(sim_fr_init_MFD_89) # OK
+testDispersion(sim_fr_init_MFD_89_glm) # OK
+```
+
+## LFD
+
+### Models
+
+```{r}
+fr_init_LFD_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~LFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_LFD_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~LFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_LFD_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~LFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_LFD_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~LFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_LFD_87)
+summary(fr_init_LFD_88)
+summary(fr_init_LFD_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_LFD_89_glm)
+```
+
+Fruit initiation significantly increases with earlier LFD only in 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_LFD_87 <- simulateResiduals(fittedModel = fr_init_LFD_87, n = 5000) 
+sim_fr_init_LFD_88 <- simulateResiduals(fittedModel = fr_init_LFD_88, n = 5000) 
+sim_fr_init_LFD_89 <- simulateResiduals(fittedModel = fr_init_LFD_89, n = 5000) 
+sim_fr_init_LFD_89_glm <- simulateResiduals(fittedModel = fr_init_LFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_LFD_87,quantreg=T) 
+plot(sim_fr_init_LFD_88,quantreg=T)
+plot(sim_fr_init_LFD_89,quantreg=T)
+plot(sim_fr_init_LFD_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_LFD_87) # OK
+testDispersion(sim_fr_init_LFD_88) # OK
+testDispersion(sim_fr_init_LFD_89) # OK
+testDispersion(sim_fr_init_LFD_89_glm) # OK
+```
+
+## Duration
+
+### Models
+
+```{r}
+fr_init_dur_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~dur_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_dur_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~dur_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_dur_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~dur_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_dur_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~dur_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_dur_87)
+summary(fr_init_dur_88)
+summary(fr_init_dur_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_dur_89_glm)
+```
+
+Fruit initiation significantly increases with longer duration of flowering only in 1989.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_dur_87 <- simulateResiduals(fittedModel = fr_init_dur_87, n = 5000) 
+sim_fr_init_dur_88 <- simulateResiduals(fittedModel = fr_init_dur_88, n = 5000) 
+sim_fr_init_dur_89 <- simulateResiduals(fittedModel = fr_init_dur_89, n = 5000) 
+sim_fr_init_dur_89_glm <- simulateResiduals(fittedModel = fr_init_dur_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_dur_87,quantreg=T) 
+plot(sim_fr_init_dur_88,quantreg=T)
+plot(sim_fr_init_dur_89,quantreg=T)
+plot(sim_fr_init_dur_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_dur_87) # OK
+testDispersion(sim_fr_init_dur_88) # OK
+testDispersion(sim_fr_init_dur_89) # OK
+testDispersion(sim_fr_init_dur_89_glm) # OK
+```
+
+## SD
+
+### Models
+
+```{r}
+fr_init_SD_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~SD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_SD_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~SD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_SD_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~SD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_SD_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~SD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_SD_87)
+summary(fr_init_SD_88)
+summary(fr_init_SD_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_SD_89_glm)
+```
+
+Fruit initiation significantly increases with higher SD of FD only in 1989.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_SD_87 <- simulateResiduals(fittedModel = fr_init_SD_87, n = 5000) 
+sim_fr_init_SD_88 <- simulateResiduals(fittedModel = fr_init_SD_88, n = 5000) 
+sim_fr_init_SD_89 <- simulateResiduals(fittedModel = fr_init_SD_89, n = 5000) 
+sim_fr_init_SD_89_glm <- simulateResiduals(fittedModel = fr_init_SD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_SD_87,quantreg=T) 
+plot(sim_fr_init_SD_88,quantreg=T)
+plot(sim_fr_init_SD_89,quantreg=T)
+plot(sim_fr_init_SD_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_SD_87) # OK
+testDispersion(sim_fr_init_SD_88) # OK
+testDispersion(sim_fr_init_SD_89) # OK
+testDispersion(sim_fr_init_SD_89_glm) # OK
+```
+
+## Variance
+
+### Models
+
+```{r}
+fr_init_var_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~var_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_var_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~var_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_var_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~var_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_var_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~var_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_var_87)
+summary(fr_init_var_88)
+summary(fr_init_var_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_var_89_glm)
+```
+
+Fruit initiation significantly increases with higher variance of FD in 1987 and 1989.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_var_87 <- simulateResiduals(fittedModel = fr_init_var_87, n = 5000) 
+sim_fr_init_var_88 <- simulateResiduals(fittedModel = fr_init_var_88, n = 5000) 
+sim_fr_init_var_89 <- simulateResiduals(fittedModel = fr_init_var_89, n = 5000) 
+sim_fr_init_var_89_glm <- simulateResiduals(fittedModel = fr_init_var_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_var_87,quantreg=T) 
+plot(sim_fr_init_var_88,quantreg=T)
+plot(sim_fr_init_var_89,quantreg=T)
+plot(sim_fr_init_var_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_var_87) # OK
+testDispersion(sim_fr_init_var_88) # OK
+testDispersion(sim_fr_init_var_89) # OK
+testDispersion(sim_fr_init_var_89_glm) # OK
+```
+
+## Skewness
+
+### Models
+
+```{r}
+fr_init_skew_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~skew_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_skew_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~skew_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_skew_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~skew_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_skew_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~skew_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_skew_87)
+summary(fr_init_skew_88)
+summary(fr_init_skew_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_skew_89_glm)
+```
+
+Fruit initiation significantly increases with higher skewness of FD in 1987 and 1989 (meaning that in these years, a higher proportion of flowers developed to fruits when the distribution of flowering dates was positively skewed / right skewed - longer right tail of the distribution).
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_skew_87 <- simulateResiduals(fittedModel = fr_init_skew_87, n = 5000) 
+sim_fr_init_skew_88 <- simulateResiduals(fittedModel = fr_init_skew_88, n = 5000) 
+sim_fr_init_skew_89 <- simulateResiduals(fittedModel = fr_init_skew_89, n = 5000) 
+sim_fr_init_skew_89_glm <- simulateResiduals(fittedModel = fr_init_skew_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_skew_87,quantreg=T) 
+plot(sim_fr_init_skew_88,quantreg=T)
+plot(sim_fr_init_skew_89,quantreg=T)
+plot(sim_fr_init_skew_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_skew_87) # OK
+testDispersion(sim_fr_init_skew_88) # OK
+testDispersion(sim_fr_init_skew_89) # OK
+testDispersion(sim_fr_init_skew_89_glm) # OK
+```
+
+## Kurtosis
+
+### Models
+
+```{r}
+fr_init_kurt_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~kurt_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+fr_init_kurt_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~kurt_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+fr_init_kurt_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~kurt_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+fr_init_kurt_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~kurt_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(fr_init_kurt_87)
+summary(fr_init_kurt_88)
+summary(fr_init_kurt_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_kurt_89_glm)
+```
+
+Fruit initiation is not significantly related to kurtosis of FD in any of the three years.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_fr_init_kurt_87 <- simulateResiduals(fittedModel = fr_init_kurt_87, n = 5000) 
+sim_fr_init_kurt_88 <- simulateResiduals(fittedModel = fr_init_kurt_88, n = 5000) 
+sim_fr_init_kurt_89 <- simulateResiduals(fittedModel = fr_init_kurt_89, n = 5000) 
+sim_fr_init_kurt_89_glm <- simulateResiduals(fittedModel = fr_init_kurt_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_fr_init_kurt_87,quantreg=T) 
+plot(sim_fr_init_kurt_88,quantreg=T)
+plot(sim_fr_init_kurt_89,quantreg=T)
+plot(sim_fr_init_kurt_89_glm,quantreg=T)
+# probably OK 
+```
+
+```{r}
+testDispersion(sim_fr_init_kurt_87) # OK
+testDispersion(sim_fr_init_kurt_88) # OK
+testDispersion(sim_fr_init_kurt_89) # OK
+testDispersion(sim_fr_init_kurt_89_glm) # Significant
+```
+
+## Plots
+
+Extract predictions from models
+
+```{r}
+pred_fr_init_avFD<-rbind(tibble(ggpredict(fr_init_avFD_87,
+                                          terms=c("avFD_std [all]")))%>%
+                           mutate(year=as.factor(1987)),
+                         tibble(ggpredict(fr_init_avFD_88,
+                                          terms=c("avFD_std [all]")))%>%
+                           mutate(year=as.factor(1988)),
+                         tibble(ggpredict(fr_init_avFD_89,
+                                          terms=c("avFD_std [all]")))%>%
+                           mutate(year=as.factor(1989)))
+pred_fr_init_FFD<-rbind(tibble(ggpredict(fr_init_FFD_87,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_FFD_88,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_FFD_89,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_MFD<-rbind(tibble(ggpredict(fr_init_MFD_87,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_MFD_88,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_MFD_89,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_LFD<-rbind(tibble(ggpredict(fr_init_LFD_87,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_LFD_88,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_LFD_89,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_dur<-rbind(tibble(ggpredict(fr_init_dur_87,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_dur_88,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_dur_89,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_SD<-rbind(tibble(ggpredict(fr_init_SD_87,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_SD_88,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_SD_89,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_var<-rbind(tibble(ggpredict(fr_init_var_87,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_var_88,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_var_89,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_skew<-rbind(tibble(ggpredict(fr_init_skew_87,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_skew_88,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_skew_89,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_fr_init_kurt<-rbind(tibble(ggpredict(fr_init_kurt_87,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(fr_init_kurt_88,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(fr_init_kurt_89,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+```
+
+### Average FD, FFD, MFD, LFD
+
+```{r fig.height=9, fig.width=6}
+fr_init_1<-grid.arrange(
+  # Average FD
+  ggplot(data_ids,aes(x=avFD_std,y=fr_init))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_fr_init_avFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_avFD,aes(x,predicted),linewidth=1,color="red")+
+    facet_wrap(~year)+
+    my_theme()+xlab("Average FD (standardized)")+ylab("Fruit initiation"),
+  # FFD
+  ggplot(data_ids,aes(x=FFD_std,y=fr_init))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_fr_init_FFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_FFD,aes(x,predicted),linewidth=1,color="red")+
+    facet_wrap(~year)+
+    my_theme()+xlab("FFD (standardized)")+ylab("Fruit initiation"),
+  # MFD
+  ggplot(data_ids,aes(x=MFD_std,y=fr_init))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_fr_init_MFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_MFD,aes(x,predicted),linewidth=1,color="red")+
+    facet_wrap(~year)+
+    my_theme()+xlab("MFD (standardized)")+ylab("Fruit initiation"),
+  # LFD
+  ggplot(data_ids,aes(x=LFD_std,y=fr_init))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_fr_init_LFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_LFD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("LFD (standardized)")+ylab("Fruit initiation"),
+  ncol=1)
+ggsave(filename="output/figures/fr_init_1.tiff",plot=fr_init_1,
+       width=20,height=25,units="cm",dpi=300)
+```
+
+### Duration, SD, variance
+
+```{r fig.height=7, fig.width=6}
+fr_init_2<-grid.arrange(
+  # Duration
+  ggplot(data_ids,aes(x=dur_std,y=fr_init))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_fr_init_dur,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_dur,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","black","red"))+
+    facet_wrap(~year)+
+    my_theme()+
+    xlab("Duration of flowering (standardized)")+ylab("Fruit initiation"),
+  # SD
+  ggplot(data_ids,aes(x=SD_std,y=fr_init))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_fr_init_SD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_SD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","black","red"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("SD of FD (standardized)")+ylab("Fruit initiation"),
+  # Variance
+  ggplot(data_ids,aes(x=var_std,y=fr_init))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_fr_init_var,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_var,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","red"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("Variance of FD (standardized)")+ylab("Fruit initiation"),
+  ncol=1)
+ggsave(filename="output/figures/fr_init_2.tiff",plot=fr_init_2,
+       width=20,height=25,units="cm",dpi=300)
+```
+
+### Skewness, kurtosis
+
+```{r fig.height=5, fig.width=6}
+fr_init_3<-grid.arrange(
+  # Skewness
+  ggplot(data_ids,aes(x=skew_std,y=fr_init))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_fr_init_skew,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_skew,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","red"))+
+    facet_wrap(~year)+
+    my_theme()+
+    xlab("Skewness of FD (standardized)")+ylab("Fruit initiation"),
+  # Kurtosis
+  ggplot(data_ids,aes(x=kurt_std,y=fr_init))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_fr_init_kurt,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_fr_init_kurt,aes(x,predicted),linewidth=1)+
+    facet_wrap(~year)+
+    my_theme()+xlab("Kurtosis of FD (standardized)")+ylab("Fruit initiation"),
+  ncol=1)
+ggsave(filename="output/figures/fr_init_3.tiff",plot=fr_init_3,
+       width=20,height=20,units="cm",dpi=300)
+```
+
+# PRE-DISPERSAL SEED PREDATION
+
+Using standardized traits and subplot as a random effect. One model per year.
+
+## Average FD
+
+### Models
+
+```{r}
+seed_pred_avFD_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~avFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_avFD_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~avFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_avFD_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~avFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_avFD_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~avFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_avFD_87)
+summary(seed_pred_avFD_88)
+summary(seed_pred_avFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_avFD_89_glm)
+```
+
+Seed predation significantly increases with earlier average FD in 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_avFD_87 <- simulateResiduals(fittedModel = seed_pred_avFD_87, n = 5000)
+sim_seed_pred_avFD_88 <- simulateResiduals(fittedModel = seed_pred_avFD_88, n = 5000)
+sim_seed_pred_avFD_89 <- simulateResiduals(fittedModel = seed_pred_avFD_89, n = 5000)
+#sim_seed_pred_avFD_89_glm <- simulateResiduals(fittedModel = seed_pred_avFD_89_glm, n = 5000)
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_avFD_87,quantreg=T) 
+plot(sim_seed_pred_avFD_88,quantreg=T)
+plot(sim_seed_pred_avFD_89,quantreg=T)
+#plot(sim_seed_pred_avFD_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_avFD_87) # OK
+testDispersion(sim_seed_pred_avFD_88) # OK
+testDispersion(sim_seed_pred_avFD_89) # OK
+#testDispersion(sim_seed_pred_avFD_89_glm) # OK
+```
+
+## FFD
+
+### Models
+
+```{r}
+seed_pred_FFD_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~FFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_FFD_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~FFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_FFD_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~FFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_FFD_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~FFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_FFD_87)
+summary(seed_pred_FFD_88)
+summary(seed_pred_FFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_FFD_89_glm)
+```
+
+Seed predation significantly increases with earlier FFD in 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_FFD_87 <- simulateResiduals(fittedModel = seed_pred_FFD_87, n = 5000) 
+sim_seed_pred_FFD_88 <- simulateResiduals(fittedModel = seed_pred_FFD_88, n = 5000) 
+sim_seed_pred_FFD_89 <- simulateResiduals(fittedModel = seed_pred_FFD_89, n = 5000) 
+#sim_seed_pred_FFD_89_glm <- simulateResiduals(fittedModel = seed_pred_FFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_FFD_87,quantreg=T) 
+plot(sim_seed_pred_FFD_88,quantreg=T)
+plot(sim_seed_pred_FFD_89,quantreg=T)
+#plot(sim_seed_pred_FFD_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_FFD_87) # OK
+testDispersion(sim_seed_pred_FFD_88) # OK
+testDispersion(sim_seed_pred_FFD_89) # OK
+#testDispersion(sim_seed_pred_FFD_89_glm) # OK
+```
+
+## MFD
+
+### Models
+
+```{r}
+seed_pred_MFD_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~MFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_MFD_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~MFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_MFD_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~MFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_MFD_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~MFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_MFD_87)
+summary(seed_pred_MFD_88)
+summary(seed_pred_MFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_MFD_89_glm)
+```
+
+Seed predation significantly increases with earlier MFD in 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_MFD_87 <- simulateResiduals(fittedModel = seed_pred_MFD_87, n = 5000) 
+sim_seed_pred_MFD_88 <- simulateResiduals(fittedModel = seed_pred_MFD_88, n = 5000) 
+sim_seed_pred_MFD_89 <- simulateResiduals(fittedModel = seed_pred_MFD_89, n = 5000) 
+#im_seed_pred_MFD_89_glm <- simulateResiduals(fittedModel = seed_pred_MFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_MFD_87,quantreg=T) 
+plot(sim_seed_pred_MFD_88,quantreg=T)
+plot(sim_seed_pred_MFD_89,quantreg=T)
+#plot(sim_seed_pred_MFD_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_MFD_87) # OK
+testDispersion(sim_seed_pred_MFD_88) # OK
+testDispersion(sim_seed_pred_MFD_89) # OK
+#testDispersion(sim_seed_pred_MFD_89_glm) # OK
+```
+
+## LFD
+
+### Models
+
+```{r}
+seed_pred_LFD_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~LFD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_LFD_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~LFD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_LFD_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~LFD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_LFD_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~LFD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_LFD_87)
+summary(seed_pred_LFD_88)
+summary(seed_pred_LFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_LFD_89_glm)
+```
+
+Seed predation significantly increases with later LFD in 1987.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_LFD_87 <- simulateResiduals(fittedModel = seed_pred_LFD_87, n = 5000) 
+sim_seed_pred_LFD_88 <- simulateResiduals(fittedModel = seed_pred_LFD_88, n = 5000) 
+sim_seed_pred_LFD_89 <- simulateResiduals(fittedModel = seed_pred_LFD_89, n = 5000) 
+#sim_seed_pred_LFD_89_glm <- simulateResiduals(fittedModel = seed_pred_LFD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_LFD_87,quantreg=T) 
+plot(sim_seed_pred_LFD_88,quantreg=T)
+plot(sim_seed_pred_LFD_89,quantreg=T)
+#plot(sim_seed_pred_LFD_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_LFD_87) # OK
+testDispersion(sim_seed_pred_LFD_88) # OK
+testDispersion(sim_seed_pred_LFD_89) # OK
+#testDispersion(sim_seed_pred_LFD_89_glm) # OK
+```
+
+## Duration
+
+### Models
+
+```{r}
+seed_pred_dur_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~dur_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_dur_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~dur_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_dur_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~dur_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_dur_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~dur_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_dur_87)
+summary(seed_pred_dur_88)
+summary(seed_pred_dur_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_dur_89_glm)
+```
+
+Seed predation significantly increases with longer duration of flowering in 1987 and 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_dur_87 <- simulateResiduals(fittedModel = seed_pred_dur_87, n = 5000) 
+sim_seed_pred_dur_88 <- simulateResiduals(fittedModel = seed_pred_dur_88, n = 5000) 
+sim_seed_pred_dur_89 <- simulateResiduals(fittedModel = seed_pred_dur_89, n = 5000) 
+#sim_seed_pred_dur_89_glm <- simulateResiduals(fittedModel = seed_pred_dur_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_dur_87,quantreg=T) 
+plot(sim_seed_pred_dur_88,quantreg=T)
+plot(sim_seed_pred_dur_89,quantreg=T)
+#plot(sim_seed_pred_dur_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_dur_87) # OK
+testDispersion(sim_seed_pred_dur_88) # OK
+testDispersion(sim_seed_pred_dur_89) # OK
+#testDispersion(sim_seed_pred_dur_89_glm) # OK
+```
+
+## SD
+
+### Models
+
+```{r}
+seed_pred_SD_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~SD_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_SD_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~SD_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_SD_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~SD_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_SD_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~SD_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_SD_87)
+summary(seed_pred_SD_88)
+summary(seed_pred_SD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_SD_89_glm)
+```
+
+Seed predation significantly increases with SD of FD in 1987 and 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_SD_87 <- simulateResiduals(fittedModel = seed_pred_SD_87, n = 5000) 
+sim_seed_pred_SD_88 <- simulateResiduals(fittedModel = seed_pred_SD_88, n = 5000) 
+sim_seed_pred_SD_89 <- simulateResiduals(fittedModel = seed_pred_SD_89, n = 5000) 
+#sim_seed_pred_SD_89_glm <- simulateResiduals(fittedModel = seed_pred_SD_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_SD_87,quantreg=T) 
+plot(sim_seed_pred_SD_88,quantreg=T)
+plot(sim_seed_pred_SD_89,quantreg=T)
+#plot(sim_seed_pred_SD_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_SD_87) # OK
+testDispersion(sim_seed_pred_SD_88) # OK
+testDispersion(sim_seed_pred_SD_89) # OK
+#testDispersion(sim_seed_pred_SD_89_glm) # OK
+```
+
+## Variance
+
+### Models
+
+```{r}
+seed_pred_var_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~var_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_var_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~var_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_var_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~var_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_var_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~var_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_var_87)
+summary(seed_pred_var_88)
+summary(seed_pred_var_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_var_89_glm)
+```
+
+Seed predation significantly increases with variance of FD in 1988.
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_var_87 <- simulateResiduals(fittedModel = seed_pred_var_87, n = 5000) 
+sim_seed_pred_var_88 <- simulateResiduals(fittedModel = seed_pred_var_88, n = 5000) 
+sim_seed_pred_var_89 <- simulateResiduals(fittedModel = seed_pred_var_89, n = 5000) 
+#sim_seed_pred_var_89_glm <- simulateResiduals(fittedModel = seed_pred_var_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_var_87,quantreg=T) 
+plot(sim_seed_pred_var_88,quantreg=T)
+plot(sim_seed_pred_var_89,quantreg=T)
+#plot(sim_seed_pred_var_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_var_87) # OK
+testDispersion(sim_seed_pred_var_88) # OK
+testDispersion(sim_seed_pred_var_89) # OK
+#testDispersion(sim_seed_pred_var_89_glm) # OK
+```
+
+## Skewness
+
+### Models
+
+```{r}
+seed_pred_skew_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~skew_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_skew_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~skew_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_skew_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~skew_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_skew_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~skew_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_skew_87)
+summary(seed_pred_skew_88)
+summary(seed_pred_skew_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_skew_89_glm)
+```
+
+Seed predation significantly decreases with higher skewness of FD in 1989 (meaning that in this year, a lower proportion of seeds were predated when the distribution of flowering dates was positively skewed / right skewed - longer right tail of the distribution).
+
+So higher skewness increases fruit initiation and reduces seed predation in this year - potential for selection for higher skewness?
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_skew_87 <- simulateResiduals(fittedModel = seed_pred_skew_87, n = 5000) 
+sim_seed_pred_skew_88 <- simulateResiduals(fittedModel = seed_pred_skew_88, n = 5000) 
+sim_seed_pred_skew_89 <- simulateResiduals(fittedModel = seed_pred_skew_89, n = 5000) 
+#sim_seed_pred_skew_89_glm <- simulateResiduals(fittedModel = seed_pred_skew_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_skew_87,quantreg=T) 
+plot(sim_seed_pred_skew_88,quantreg=T)
+plot(sim_seed_pred_skew_89,quantreg=T)
+#plot(sim_seed_pred_skew_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_skew_87) # OK
+testDispersion(sim_seed_pred_skew_88) # OK
+testDispersion(sim_seed_pred_skew_89) # OK
+#testDispersion(sim_seed_pred_skew_89_glm) # OK
+```
+
+## Kurtosis
+
+### Models
+
+```{r}
+seed_pred_kurt_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~kurt_std+(1|subplot),
+                      subset(data_ids,year==1987),family="binomial")
+seed_pred_kurt_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~kurt_std+(1|subplot),
+                      subset(data_ids,year==1988),family="binomial")
+seed_pred_kurt_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~kurt_std+(1|subplot),
+                      subset(data_ids,year==1989),family="binomial")
+seed_pred_kurt_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                    npr_seeds=round(n_seed)-round(n_preyed_seed))~kurt_std,
+                      subset(data_ids,year==1989),family="binomial")
+summary(seed_pred_kurt_87)
+summary(seed_pred_kurt_88)
+summary(seed_pred_kurt_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(seed_pred_kurt_89_glm)
+```
+
+Seed predation significantly increases with higher kurtosis of FD in 1987 (meaning that in this year, a higher proportion of seeds were predated when the distribution of flowering dates was more leptokurtic).
+
+### Model diagnostics
+
+Simulate residuals of the model:
+
+```{r message=FALSE, warning=FALSE}
+sim_seed_pred_kurt_87 <- simulateResiduals(fittedModel = seed_pred_kurt_87, n = 5000) 
+sim_seed_pred_kurt_88 <- simulateResiduals(fittedModel = seed_pred_kurt_88, n = 5000) 
+sim_seed_pred_kurt_89 <- simulateResiduals(fittedModel = seed_pred_kurt_89, n = 5000) 
+#sim_seed_pred_kurt_89_glm <- simulateResiduals(fittedModel = seed_pred_kurt_89_glm, n = 5000) 
+```
+
+qq-plot  and plot of residuals vs. predicted:
+
+```{r}
+plot(sim_seed_pred_kurt_87,quantreg=T) 
+plot(sim_seed_pred_kurt_88,quantreg=T)
+plot(sim_seed_pred_kurt_89,quantreg=T)
+#plot(sim_seed_pred_kurt_89_glm,quantreg=T)
+# Problems?
+```
+
+```{r}
+testDispersion(sim_seed_pred_kurt_87) # OK
+testDispersion(sim_seed_pred_kurt_88) # OK
+testDispersion(sim_seed_pred_kurt_89) # OK
+#testDispersion(sim_seed_pred_kurt_89_glm) # OK
+```
+
+## Plots
+
+Extract predictions from models
+
+```{r}
+pred_seed_pred_avFD<-rbind(tibble(ggpredict(seed_pred_avFD_87,
+                                          terms=c("avFD_std [all]")))%>%
+                           mutate(year=as.factor(1987)),
+                         tibble(ggpredict(seed_pred_avFD_88,
+                                          terms=c("avFD_std [all]")))%>%
+                           mutate(year=as.factor(1988)),
+                         tibble(ggpredict(seed_pred_avFD_89,
+                                          terms=c("avFD_std [all]")))%>%
+                           mutate(year=as.factor(1989)))
+pred_seed_pred_FFD<-rbind(tibble(ggpredict(seed_pred_FFD_87,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_FFD_88,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_FFD_89,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_MFD<-rbind(tibble(ggpredict(seed_pred_MFD_87,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_MFD_88,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_MFD_89,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_LFD<-rbind(tibble(ggpredict(seed_pred_LFD_87,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_LFD_88,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_LFD_89,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_dur<-rbind(tibble(ggpredict(seed_pred_dur_87,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_dur_88,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_dur_89,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_SD<-rbind(tibble(ggpredict(seed_pred_SD_87,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_SD_88,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_SD_89,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_var<-rbind(tibble(ggpredict(seed_pred_var_87,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_var_88,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_var_89,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_skew<-rbind(tibble(ggpredict(seed_pred_skew_87,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_skew_88,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_skew_89,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_seed_pred_kurt<-rbind(tibble(ggpredict(seed_pred_kurt_87,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(seed_pred_kurt_88,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(seed_pred_kurt_89,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+```
+
+### Average FD, FFD, MFD, LFD
+
+```{r fig.height=9, fig.width=6}
+seed_pred_1<-grid.arrange(
+  # Average FD
+  ggplot(data_ids,aes(x=avFD_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_seed_pred_avFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_avFD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("Average FD (standardized)")+ylab("Seed predation"),
+  # FFD
+  ggplot(data_ids,aes(x=FFD_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_seed_pred_FFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_FFD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("FFD (standardized)")+ylab("Seed predation"),
+  # MFD
+  ggplot(data_ids,aes(x=MFD_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_seed_pred_MFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_MFD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("MFD (standardized)")+ylab("Seed predation"),
+  # LFD
+  ggplot(data_ids,aes(x=LFD_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_seed_pred_LFD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_LFD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("LFD (standardized)")+ylab("Seed predation"),
+  ncol=1)
+ggsave(filename="output/figures/seed_pred_1.tiff",plot=seed_pred_1,
+       width=20,height=25,units="cm",dpi=300)
+```
+
+### Duration, SD, variance
+
+```{r fig.height=7, fig.width=6}
+seed_pred_2<-grid.arrange(
+  # Duration
+  ggplot(data_ids,aes(x=dur_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_seed_pred_dur,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_dur,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+
+    xlab("Duration of flowering (standardized)")+ylab("Seed predation"),
+  # SD
+  ggplot(data_ids,aes(x=SD_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_seed_pred_SD,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_SD,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("SD of FD (standardized)")+ylab("Seed predation"),
+  # Variance
+  ggplot(data_ids,aes(x=var_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_seed_pred_var,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_var,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","red","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("Variance of FD (standardized)")+ylab("Seed predation"),
+  ncol=1)
+ggsave(filename="output/figures/seed_pred_2.tiff",plot=seed_pred_2,
+       width=20,height=25,units="cm",dpi=300)
+```
+
+### Skewness, kurtosis
+
+```{r fig.height=5, fig.width=6}
+seed_pred_3<-grid.arrange(
+  # Skewness
+  ggplot(data_ids,aes(x=skew_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_seed_pred_skew,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_skew,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("black","black","red"))+
+    facet_wrap(~year)+
+    my_theme()+
+    xlab("Skewness of FD (standardized)")+ylab("Seed predation"),
+  # Kurtosis
+  ggplot(data_ids,aes(x=kurt_std,y=prop_seed_preyed))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_seed_pred_kurt,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_seed_pred_kurt,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("Kurtosis of FD (standardized)")+ylab("Seed predation"),
+  ncol=1)
+ggsave(filename="output/figures/seed_pred_3.tiff",plot=seed_pred_3,
+       width=20,height=20,units="cm",dpi=300)
+```
+
+# PHENOTYPIC SELECTION
+
+## Average FD
+
+### Without n_fl
+
+```{r}
+sel_avFD_87<-glmmTMB(fitness_rel~avFD_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_avFD_88<-glmmTMB(fitness_rel~avFD_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_avFD_89<-glmmTMB(fitness_rel~avFD_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_avFD_89_glm<-lm(fitness_rel~avFD_std,subset(data_ids,year==1989))
+summary(sel_avFD_87)
+summary(sel_avFD_88)
+summary(sel_avFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_avFD_89_glm)
+```
+
+Selection for earlier average FD in 1987 and 1989.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_avFD_87_nfl<-glmmTMB(fitness_rel~avFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_avFD_88_nfl<-glmmTMB(fitness_rel~avFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_avFD_89_nfl<-glmmTMB(fitness_rel~avFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_avFD_89_glm_nfl<-lm(fitness_rel~avFD_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_avFD_87_nfl)
+summary(sel_avFD_88_nfl)
+summary(sel_avFD_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_avFD_89_glm_nfl)
+```
+
+Selection for earlier average FD in 1987.
+
+#### BCA intervals
+
+## FFD
+
+### Without n_fl
+
+```{r}
+sel_FFD_87<-glmmTMB(fitness_rel~FFD_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_FFD_88<-glmmTMB(fitness_rel~FFD_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_FFD_89<-glmmTMB(fitness_rel~FFD_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_FFD_89_glm<-lm(fitness_rel~FFD_std,subset(data_ids,year==1989))
+summary(sel_FFD_87)
+summary(sel_FFD_88)
+summary(sel_FFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_FFD_89_glm)
+```
+
+Selection for earlier FFD in all three years.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_FFD_87_nfl<-glmmTMB(fitness_rel~FFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_FFD_88_nfl<-glmmTMB(fitness_rel~FFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_FFD_89_nfl<-glmmTMB(fitness_rel~FFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_FFD_89_glm_nfl<-lm(fitness_rel~FFD_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_FFD_87_nfl)
+summary(sel_FFD_88_nfl)
+summary(sel_FFD_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_FFD_89_glm_nfl)
+```
+
+Selection for earlier FFD in 1987.
+
+#### BCA intervals
+
+## MFD
+
+### Without n_fl
+
+```{r}
+sel_MFD_87<-glmmTMB(fitness_rel~MFD_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_MFD_88<-glmmTMB(fitness_rel~MFD_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_MFD_89<-glmmTMB(fitness_rel~MFD_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_MFD_89_glm<-lm(fitness_rel~MFD_std,subset(data_ids,year==1989))
+summary(sel_MFD_87)
+summary(sel_MFD_88)
+summary(sel_MFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_MFD_89_glm)
+```
+
+Selection for earlier MFD in 1987 and 1989.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_MFD_87_nfl<-glmmTMB(fitness_rel~MFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_MFD_88_nfl<-glmmTMB(fitness_rel~MFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_MFD_89_nfl<-glmmTMB(fitness_rel~MFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_MFD_89_glm_nfl<-lm(fitness_rel~MFD_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_MFD_87_nfl)
+summary(sel_MFD_88_nfl)
+summary(sel_MFD_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_MFD_89_glm_nfl)
+```
+
+Selection for earlier MFD in 1987.
+
+#### BCA intervals
+
+## LFD
+
+### Without n_fl
+
+```{r}
+sel_LFD_87<-glmmTMB(fitness_rel~LFD_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_LFD_88<-glmmTMB(fitness_rel~LFD_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_LFD_89<-glmmTMB(fitness_rel~LFD_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_LFD_89_glm<-lm(fitness_rel~LFD_std,subset(data_ids,year==1989))
+summary(sel_LFD_87)
+summary(sel_LFD_88)
+summary(sel_LFD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_LFD_89_glm)
+```
+
+Selection for later LFD in 1989.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_LFD_87_nfl<-glmmTMB(fitness_rel~LFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_LFD_88_nfl<-glmmTMB(fitness_rel~LFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_LFD_89_nfl<-glmmTMB(fitness_rel~LFD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_LFD_89_glm_nfl<-lm(fitness_rel~LFD_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_LFD_87_nfl)
+summary(sel_LFD_88_nfl)
+summary(sel_LFD_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_LFD_89_glm_nfl)
+```
+
+No selection for LFD in any of the three years.
+
+#### BCA intervals
+
+## Duration
+
+### Without n_fl
+
+```{r}
+sel_dur_87<-glmmTMB(fitness_rel~dur_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_dur_88<-glmmTMB(fitness_rel~dur_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_dur_89<-glmmTMB(fitness_rel~dur_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_dur_89_glm<-lm(fitness_rel~dur_std,subset(data_ids,year==1989))
+summary(sel_dur_87)
+summary(sel_dur_88)
+summary(sel_dur_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_dur_89_glm)
+```
+
+Selection for longer duration of flowering in all three years.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_dur_87_nfl<-glmmTMB(fitness_rel~dur_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_dur_88_nfl<-glmmTMB(fitness_rel~dur_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_dur_89_nfl<-glmmTMB(fitness_rel~dur_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_dur_89_glm_nfl<-lm(fitness_rel~dur_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_dur_87_nfl)
+summary(sel_dur_88_nfl)
+summary(sel_dur_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_dur_89_glm_nfl)
+```
+
+Selection for longer duration of flowering in 1987.
+
+#### BCA intervals
+
+## SD
+
+### Without n_fl
+
+```{r}
+sel_SD_87<-glmmTMB(fitness_rel~SD_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_SD_88<-glmmTMB(fitness_rel~SD_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_SD_89<-glmmTMB(fitness_rel~SD_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_SD_89_glm<-lm(fitness_rel~SD_std,subset(data_ids,year==1989))
+summary(sel_SD_87)
+summary(sel_SD_88)
+summary(sel_SD_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_SD_89_glm)
+```
+
+Selection for higher SD of flowering in all three years.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_SD_87_nfl<-glmmTMB(fitness_rel~SD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_SD_88_nfl<-glmmTMB(fitness_rel~SD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_SD_89_nfl<-glmmTMB(fitness_rel~SD_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_SD_89_glm_nfl<-lm(fitness_rel~SD_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_SD_87_nfl)
+summary(sel_SD_88_nfl)
+summary(sel_SD_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_SD_89_glm_nfl)
+```
+
+Selection for higher duration of flowering in 1987.
+
+#### BCA intervals
+
+## Variance
+
+### Without n_fl
+
+```{r}
+sel_var_87<-glmmTMB(fitness_rel~var_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_var_88<-glmmTMB(fitness_rel~var_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_var_89<-glmmTMB(fitness_rel~var_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_var_89_glm<-lm(fitness_rel~var_std,subset(data_ids,year==1989))
+summary(sel_var_87)
+summary(sel_var_88)
+summary(sel_var_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_var_89_glm)
+```
+
+Selection for higher variance of flowering in all three years.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_var_87_nfl<-glmmTMB(fitness_rel~var_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_var_88_nfl<-glmmTMB(fitness_rel~var_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_var_89_nfl<-glmmTMB(fitness_rel~var_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_var_89_glm_nfl<-lm(fitness_rel~var_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_var_87_nfl)
+summary(sel_var_88_nfl)
+summary(sel_var_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_var_89_glm_nfl)
+```
+
+Selection for higher variance of flowering in 1987.
+
+#### BCA intervals
+
+## Skewness
+
+#### Without n_fl
+
+```{r}
+sel_skew_87<-glmmTMB(fitness_rel~skew_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_skew_88<-glmmTMB(fitness_rel~skew_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_skew_89<-glmmTMB(fitness_rel~skew_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_skew_89_glm<-lm(fitness_rel~skew_std,subset(data_ids,year==1989))
+summary(sel_skew_87)
+summary(sel_skew_88)
+summary(sel_skew_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_skew_89_glm)
+```
+
+Selection for higher skewness of FD in 1987 and 1989.
+
+(Recall that fruit initiation significantly increased with higher skewness of FD in 1987 and 1989, and seed predation significantly decreased with higher skewness of FD in 1989).
+
+##### BCA intervals
+
+#### With n_fl
+
+```{r}
+sel_skew_87_nfl<-glmmTMB(fitness_rel~skew_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_skew_88_nfl<-glmmTMB(fitness_rel~skew_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_skew_89_nfl<-glmmTMB(fitness_rel~skew_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_skew_89_glm_nfl<-lm(fitness_rel~skew_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_skew_87_nfl)
+summary(sel_skew_88_nfl)
+summary(sel_skew_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_skew_89_glm_nfl)
+```
+
+Similar results as without n_fl: Selection for higher skewness of FD in 1987 and 1989.
+
+##### BCA intervals
+
+## Kurtosis
+
+### Without n_fl
+
+```{r}
+sel_kurt_87<-glmmTMB(fitness_rel~kurt_std+(1|subplot),
+                     subset(data_ids,year==1987))
+sel_kurt_88<-glmmTMB(fitness_rel~kurt_std+(1|subplot),
+                     subset(data_ids,year==1988))
+sel_kurt_89<-glmmTMB(fitness_rel~kurt_std+(1|subplot),
+                     subset(data_ids,year==1989))
+sel_kurt_89_glm<-lm(fitness_rel~kurt_std,subset(data_ids,year==1989))
+summary(sel_kurt_87)
+summary(sel_kurt_88)
+summary(sel_kurt_89) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_kurt_89_glm)
+```
+
+Selection for higher kurtosis of FD in 1987.
+
+#### BCA intervals
+
+### With n_fl
+
+```{r}
+sel_kurt_87_nfl<-glmmTMB(fitness_rel~kurt_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1987))
+sel_kurt_88_nfl<-glmmTMB(fitness_rel~kurt_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1988))
+sel_kurt_89_nfl<-glmmTMB(fitness_rel~kurt_std+n_fl_std+(1|subplot),
+                         subset(data_ids,year==1989))
+sel_kurt_89_glm_nfl<-lm(fitness_rel~kurt_std+n_fl_std,
+                        subset(data_ids,year==1989))
+summary(sel_kurt_87_nfl)
+summary(sel_kurt_88_nfl)
+summary(sel_kurt_89_nfl) 
+# Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
+summary(sel_kurt_89_glm_nfl)
+```
+
+No selection for kurtosis of FD in any of the three years.
+
+#### BCA intervals
+
+## Plots
+
+```{r}
+pred_sel_avFD<-rbind(tibble(ggpredict(sel_avFD_87,
+                                         terms=c("avFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_avFD_88,
+                                         terms=c("avFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_avFD_89,
+                                         terms=c("avFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_avFD_nfl<-rbind(tibble(ggpredict(sel_avFD_87_nfl,
+                                         terms=c("avFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_avFD_88_nfl,
+                                         terms=c("avFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_avFD_89_nfl,
+                                         terms=c("avFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_FFD<-rbind(tibble(ggpredict(sel_FFD_87,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_FFD_88,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_FFD_89,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_FFD_nfl<-rbind(tibble(ggpredict(sel_FFD_87_nfl,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_FFD_88_nfl,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_FFD_89_nfl,
+                                         terms=c("FFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_MFD<-rbind(tibble(ggpredict(sel_MFD_87,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_MFD_88,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_MFD_89,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_MFD_nfl<-rbind(tibble(ggpredict(sel_MFD_87_nfl,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_MFD_88_nfl,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_MFD_89_nfl,
+                                         terms=c("MFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_LFD<-rbind(tibble(ggpredict(sel_LFD_87,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_LFD_88,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_LFD_89,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_LFD_nfl<-rbind(tibble(ggpredict(sel_LFD_87_nfl,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_LFD_88_nfl,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_LFD_89_nfl,
+                                         terms=c("LFD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_dur<-rbind(tibble(ggpredict(sel_dur_87,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_dur_88,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_dur_89,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_dur_nfl<-rbind(tibble(ggpredict(sel_dur_87_nfl,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_dur_88_nfl,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_dur_89_nfl,
+                                         terms=c("dur_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_SD<-rbind(tibble(ggpredict(sel_SD_87,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_SD_88,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_SD_89,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_SD_nfl<-rbind(tibble(ggpredict(sel_SD_87_nfl,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_SD_88_nfl,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_SD_89_nfl,
+                                         terms=c("SD_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_var<-rbind(tibble(ggpredict(sel_var_87,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_var_88,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_var_89,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_var_nfl<-rbind(tibble(ggpredict(sel_var_87_nfl,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_var_88_nfl,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_var_89_nfl,
+                                         terms=c("var_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_skew<-rbind(tibble(ggpredict(sel_skew_87,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_skew_88,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_skew_89,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_skew_nfl<-rbind(tibble(ggpredict(sel_skew_87_nfl,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_skew_88_nfl,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_skew_89_nfl,
+                                         terms=c("skew_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_kurt<-rbind(tibble(ggpredict(sel_kurt_87,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_kurt_88,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_kurt_89,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+pred_sel_kurt_nfl<-rbind(tibble(ggpredict(sel_kurt_87_nfl,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1987)),
+                        tibble(ggpredict(sel_kurt_88_nfl,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1988)),
+                        tibble(ggpredict(sel_kurt_89_nfl,
+                                         terms=c("kurt_std [all]")))%>%
+                          mutate(year=as.factor(1989)))
+```
+
+So far using predictions from models with n_fl.
+
+### Average FD, FFD, MFD, LFD
+
+```{r fig.height=9, fig.width=6}
+phen_sel_1<-grid.arrange(
+  # Average FD
+  ggplot(data_ids,aes(x=avFD_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_sel_avFD_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_avFD_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("Average FD (standardized)")+ylab("Relative fitness"),
+  # FFD
+  ggplot(data_ids,aes(x=FFD_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_sel_FFD_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_FFD_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("FFD (standardized)")+ylab("Relative fitness"),
+  # MFD
+  ggplot(data_ids,aes(x=MFD_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_sel_MFD_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_MFD_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("MFD (standardized)")+ylab("Relative fitness"),
+  # LFD
+  ggplot(data_ids,aes(x=LFD_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_sel_LFD_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_LFD_nfl,aes(x,predicted),linewidth=1)+
+    facet_wrap(~year)+
+    my_theme()+xlab("LFD (standardized)")+ylab("Relative fitness"),
+  ncol=1)
+ggsave(filename="output/figures/phen_sel_1.tiff",plot=phen_sel_1,
+       width=20,height=25,units="cm",dpi=300)
+```
+
+### Duration, SD, variance
+
+```{r fig.height=7, fig.width=6}
+phen_sel_2<-grid.arrange(
+  # Duration
+  ggplot(data_ids,aes(x=dur_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_sel_dur_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_dur_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+
+    xlab("Duration of flowering (standardized)")+ylab("Relative fitness"),
+  # SD
+  ggplot(data_ids,aes(x=SD_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_sel_SD_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_SD_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("SD of FD (standardized)")+ylab("Relative fitness"),
+  # Variance
+  ggplot(data_ids,aes(x=var_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_sel_var_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_var_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","black"))+
+    facet_wrap(~year)+
+    my_theme()+xlab("Variance of FD (standardized)")+ylab("Relative fitness"),
+  ncol=1)
+ggsave(filename="output/figures/phen_sel_2.tiff",plot=phen_sel_2,
+       width=20,height=25,units="cm",dpi=300)
+```
+
+### Skewness, kurtosis
+
+```{r fig.height=5, fig.width=6}
+phen_sel_3<-grid.arrange(
+  # Skewness
+  ggplot(data_ids,aes(x=skew_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+
+    geom_ribbon(data=pred_sel_skew_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_skew_nfl,aes(x,predicted,color=year),linewidth=1)+
+    scale_color_manual(values=c("red","black","red"))+
+    facet_wrap(~year)+
+    my_theme()+
+    xlab("Skewness of FD (standardized)")+ylab("Relative fitness"),
+  # Kurtosis
+  ggplot(data_ids,aes(x=kurt_std,y=fitness_rel))+geom_point(size=2,alpha=0.3)+ 
+    geom_ribbon(data=pred_sel_kurt_nfl,
+                aes(x,predicted,ymin=conf.low,ymax=conf.high),alpha=0.3)+
+    geom_line(data=pred_sel_kurt_nfl,aes(x,predicted),linewidth=1)+
+    facet_wrap(~year)+
+    my_theme()+xlab("Kurtosis of FD (standardized)")+ylab("Relative fitness"),
+  ncol=1)
+ggsave(filename="output/figures/phen_sel_3.tiff",plot=phen_sel_3,
+       width=20,height=20,units="cm",dpi=300)
+```
+
+# Models with PCA axes of traits
+
+Idea from Franks and Weis 2008 (J. Evol. Biol.)
+
+Now using a global PCA with data for the three years together.
+Separate PCAs for each year are a little different (but not much). See if we do that.
+
+## Without n_fl 
+
+### PCA
+
+```{r}
+data_ids_alltraits<-subset(data_ids,!is.na(avFD_std)&!is.na(FFD_std)&
+                             !is.na(MFD_std)&!is.na(LFD_std)&!is.na(dur_std)&
+                             !is.na(SD_std)&!is.na(var_std)&!is.na(skew_std)&
+                             !is.na(kurt_std))
+PCA_global<-prcomp(~avFD_std+FFD_std+MFD_std+LFD_std+dur_std+SD_std+var_std+
+                 skew_std+kurt_std,data=data_ids_alltraits,center=T,scale=T)
+autoplot(PCA_global,x=1,y=2,loadings=T,loadings.label=T,loadings.label.size=4,shape=F,
+         label=F,loadings.label.repel=T)+
+  geom_point(alpha=0.1,size=2)+my_theme()
+autoplot(PCA_global,x=3,y=4,loadings=T,loadings.label=T,loadings.label.size=4,shape=F,
+         label=F,loadings.label.repel=T)+
+  geom_point(alpha=0.1,size=2)+my_theme()
+PCA_global
+summary(PCA_global)
+data_ids_alltraits$PC1<-predict(PCA_global)[,1]
+data_ids_alltraits$PC2<-predict(PCA_global)[,2]
+data_ids_alltraits$PC3<-predict(PCA_global)[,3]
+```
+### Fruit initiation
+
+```{r}
+fr_init_PCA_87<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~PC1+PC2+PC3+(1|subplot),
+                      subset(data_ids_alltraits,year==1987),family="binomial")
+fr_init_PCA_88<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~PC1+PC2+PC3+(1|subplot),
+                      subset(data_ids_alltraits,year==1988),family="binomial")
+fr_init_PCA_89<-glmmTMB(cbind(fr=n_fr,nofr=n_fl-n_fr)~PC1+PC2+PC3+(1|subplot),
+                      subset(data_ids_alltraits,year==1989),family="binomial")
+fr_init_PCA_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~PC1+PC2+PC3,
+                      subset(data_ids_alltraits,year==1989),family="binomial")
+summary(fr_init_PCA_87)
+summary(fr_init_PCA_88)
+summary(fr_init_PCA_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(fr_init_PCA_89_glm)
+```
+
+### Seed predation
+
+```{r}
+seed_pred_PCA_87<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                                npr_seeds=round(n_seed)-round(n_preyed_seed))~
+                            PC1+PC2+PC3+(1|subplot),
+                          subset(data_ids_alltraits,year==1987),
+                          family="binomial")
+seed_pred_PCA_88<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                                npr_seeds=round(n_seed)-round(n_preyed_seed))~
+                            PC1+PC2+PC3+(1|subplot),
+                          subset(data_ids_alltraits,year==1988),
+                          family="binomial")
+seed_pred_PCA_89<-glmmTMB(cbind(pr_seeds=round(n_preyed_seed),
+                                npr_seeds=round(n_seed)-round(n_preyed_seed))~
+                            PC1+PC2+PC3+(1|subplot),
+                          subset(data_ids_alltraits,year==1989),
+                          family="binomial")
+seed_pred_PCA_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
+                                npr_seeds=round(n_seed)-round(n_preyed_seed))~
+                            PC1+PC2+PC3,
+                          subset(data_ids_alltraits,year==1989),
+                          family="binomial")
+summary(seed_pred_PCA_87)
+summary(seed_pred_PCA_88)
+summary(seed_pred_PCA_89) 
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(seed_pred_PCA_89_glm)
+```
+
+### Selection
+
+```{r}
+sel_PCA_87<-glmmTMB(fitness_rel~PC1+PC2+PC3+n_fl_std+(1|subplot),
+                    subset(data_ids_alltraits,year==1987))
+sel_PCA_88<-glmmTMB(fitness_rel~PC1+PC2+PC3+n_fl_std+(1|subplot),
+                    subset(data_ids_alltraits,year==1988))
+sel_PCA_89<-glmmTMB(fitness_rel~PC1+PC2+PC3+n_fl_std+(1|subplot),
+                    subset(data_ids_alltraits,year==1989))
+sel_PCA_89_glm<-lm(fitness_rel~PC1+PC2+PC3+n_fl_std,
+                    subset(data_ids_alltraits,year==1989))
+summary(sel_PCA_87)
+summary(sel_PCA_88)
+summary(sel_PCA_89)
+# Only 3 subplots in 1989 - Use? Very similar result with a GLM
+summary(sel_PCA_89_glm)
+```
+
+
+## With n_fl 
+
+### PCA
+
+```{r}
+PCA_global_nfl<-prcomp(~avFD_std+FFD_std+MFD_std+LFD_std+dur_std+SD_std+var_std+
+                 skew_std+kurt_std+n_fl_std,
+                 data=data_ids_alltraits,center=T,scale=T)
+autoplot(PCA_global_nfl,x=1,y=2,loadings=T,loadings.label=T,loadings.label.size=4,shape=F,
+         label=F,loadings.label.repel=T)+
+  geom_point(alpha=0.1,size=2)+my_theme()
+autoplot(PCA_global_nfl,x=3,y=4,loadings=T,loadings.label=T,loadings.label.size=4,shape=F,
+         label=F,loadings.label.repel=T)+
+  geom_point(alpha=0.1,size=2)+my_theme()
+PCA_global_nfl
+summary(PCA_global_nfl)
+data_ids_alltraits$PC1_nfl<-predict(PCA_global_nfl)[,1]
+data_ids_alltraits$PC2_nfl<-predict(PCA_global_nfl)[,2]
+data_ids_alltraits$PC3_nfl<-predict(PCA_global_nfl)[,3]
+```
+
+### Selection models
+
+```{r}
+sel_PCA_nfl_87<-glmmTMB(fitness_rel~PC1_nfl+PC2_nfl+PC3_nfl+(1|subplot),
+                    subset(data_ids_alltraits,year==1987))
+sel_PCA_nfl_88<-glmmTMB(fitness_rel~PC1_nfl+PC2_nfl+PC3_nfl+(1|subplot),
+                    subset(data_ids_alltraits,year==1988))
+sel_PCA_nfl_89<-glmmTMB(fitness_rel~PC1_nfl+PC2_nfl+PC3_nfl+(1|subplot),
+                    subset(data_ids_alltraits,year==1989))
+summary(sel_PCA_nfl_87)
+summary(sel_PCA_nfl_88)
+summary(sel_PCA_nfl_89)
+```
+
+# Additional: skewness as function of mean/median FD & SD/var of FD
+
+Idea from Stemkovski et al. 2023 (Ecology).
+
+## Models
+
+```{r}
+summary(lm(skew~avFD_std,subset(data_ids,year==1987)))
+summary(lm(skew~avFD_std,subset(data_ids,year==1988)))
+summary(lm(skew~avFD_std,subset(data_ids,year==1989)))
+
+summary(lm(skew~MFD_std,subset(data_ids,year==1987)))
+summary(lm(skew~MFD_std,subset(data_ids,year==1988)))
+summary(lm(skew~MFD_std,subset(data_ids,year==1989)))
+
+summary(lm(skew~SD_std,subset(data_ids,year==1987)))
+summary(lm(skew~SD_std,subset(data_ids,year==1988)))
+summary(lm(skew~SD_std,subset(data_ids,year==1989)))
+
+summary(lm(skew~var_std,subset(data_ids,year==1987)))
+summary(lm(skew~var_std,subset(data_ids,year==1988)))
+summary(lm(skew~var_std,subset(data_ids,year==1989)))
+```
+
+Higher skewness in early-flowering in 1987 and 1988.
+Higher skewness with higher SD and var in all three years.
+
+## Plots
+
+Preliminary, better to do with yearly models.
+
+```{r}
+plot(ggpredict(lm(skew~avFD_std*year,data_ids),terms=c("avFD_std","year")))
+plot(ggpredict(lm(skew~MFD_std*year,data_ids),terms=c("MFD_std","year")))
+plot(ggpredict(lm(skew~SD_std*year,data_ids),terms=c("SD_std","year")))
+plot(ggpredict(lm(skew~var_std*year,data_ids),terms=c("var_std","year")))
+```
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```
