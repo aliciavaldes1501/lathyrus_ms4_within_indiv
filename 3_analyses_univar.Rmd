@@ -476,7 +476,7 @@ fr_init_kurt_89_glm<-glm(cbind(fr=n_fr,nofr=n_fl-n_fr)~kurt_std,
                       subset(data_ids,year==1989),family="binomial")
 summary(fr_init_kurt_87)
 summary(fr_init_kurt_88)
-summary(fr_init_kurt_89) 
+summary(fr_init_kurt_89) # Significant if removing 1 outlier with kurt_std>5
 # Only 3 subplots in 1989 - Use? Very similar result with a GLM
 summary(fr_init_kurt_89_glm)
 ```
@@ -1153,7 +1153,7 @@ seed_pred_kurt_89_glm<-glm(cbind(pr_seeds=round(n_preyed_seed),
                       subset(data_ids,year==1989),family="binomial")
 summary(seed_pred_kurt_87)
 summary(seed_pred_kurt_88)
-summary(seed_pred_kurt_89) 
+summary(seed_pred_kurt_89) # Significant if removing 1 outlier with kurt_std>5
 # Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
 summary(seed_pred_kurt_89_glm)
 ```
@@ -1754,8 +1754,8 @@ sel_kurt_89<-glmmTMB(fitness_rel~kurt_std+(1|subplot),
                      subset(data_ids,year==1989))
 sel_kurt_89_glm<-lm(fitness_rel~kurt_std,subset(data_ids,year==1989))
 summary(sel_kurt_87)
-summary(sel_kurt_88)
-summary(sel_kurt_89) 
+summary(sel_kurt_88) # Significant if removing 1 outlier with kurt_std>5
+summary(sel_kurt_89) # Significant if removing 1 outlier with kurt_std>5
 # Only 3 subplots in 1989 - Use? Ssimilar result with a GLM
 summary(sel_kurt_89_glm)
 ```
