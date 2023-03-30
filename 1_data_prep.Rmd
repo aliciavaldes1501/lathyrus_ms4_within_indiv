@@ -428,10 +428,28 @@ data_ids<-data_ids%>%
 # than for FFD_v, MFD_v and LFD_v, so I used the first
 ```
 
+# Join individual flower data for the three years
+
+```{r}
+data_id_flowers<-rbind(data_id_flowers_87%>%
+                         mutate(year=1987),
+                       data_id_flowers_88%>%
+                         mutate(year=1988),
+                       data_id_flowers_89%>%
+                         mutate(year=1989))%>%
+  mutate(year=as.factor(year))%>%
+  left_join(dates_summary, by = c("year" = "year")) %>%
+  mutate(opening_date_c=date_slope_c*opening_date+date_intercept_c,
+         opening_date_v=date_slope_v*opening_date+date_intercept_v,
+         year=as.factor(year))
+```
+
+
 # Save clean data as .csv
 
 ```{r}
 write_csv(data_ids,"data/clean/data_ids.csv")
+write_csv(data_id_flowers,"data/clean/data_id_flowers.csv")
 ```
 
 # Session info
