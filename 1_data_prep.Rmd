@@ -89,7 +89,7 @@ data_ids_87 <- data_ids_87 %>%
   rename(number = ID, subplot = Subplot, id = Ind, avFD = `Mean (MFD)`,
          skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
          dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
-         fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
+         fr_set = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
          n_preyed_seed = `Preyed seeds`, 
          fitness = `Intact seeds (fitness)`,
          imp_seed_preyed = Imputed,
@@ -99,7 +99,7 @@ data_ids_88 <- data_ids_88 %>%
   rename(number = ID, subplot = Subplot, id = Ind, avFD = `Mean (MFD)`,
          skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
          dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
-         fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
+         fr_set = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
          n_preyed_seed = `Preyed seeds`, 
          fitness = `Intact seeds (fitness)`,
          imp_seed_preyed = Imputed,
@@ -109,7 +109,7 @@ data_ids_89 <- data_ids_89 %>%
   rename(number = ID, subplot = Subplot, id = Ind, avFD = `Mean (MFD)`,
          skew =  Skew, kurt = Kurtosis,LFD = `Max (LFD)`, FFD = `Min (FFD)`,
          dur = `Range (Duration)`, n_fl = `Flower N`, n_fr = Fruits, 
-         fr_init = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
+         fr_set = `Fruit init (fr/fl)`, n_seed = `Total seeds`, 
          n_preyed_seed = `Preyed seeds`, 
          fitness = `Intact seeds (fitness)`,
          imp_seed_preyed = Imputed)
@@ -141,24 +141,26 @@ data_ids_89 <- data_ids_89 %>%
 
 ```{r}
 data_id_flowers_87 <- data_id_flowers_87 %>%
-  select(RUTA,GENET...2,`New Phenoadj based on intervals`) %>%
+  dplyr::select(RUTA,GENET...2,`New Phenoadj based on intervals`,
+                Framgångredef)%>%
   mutate(id = paste(RUTA,GENET...2,sep=":"),
          opening_date = `New Phenoadj based on intervals`) %>%
-  rename(subplot = RUTA, number = GENET...2) %>%
-  select(-`New Phenoadj based on intervals`)
+  rename(subplot = RUTA, number = GENET...2,fate=Framgångredef) %>%
+  dplyr::select(-`New Phenoadj based on intervals`)
 data_id_flowers_88 <- data_id_flowers_88 %>%
-  select(RUTA...1,GENET...2,`New Phenoadj based on intervals`) %>%
+  dplyr::select(RUTA...1,GENET...2,`New Phenoadj based on intervals`,
+                Framgångredef...16) %>%
   mutate(id = paste(RUTA...1,GENET...2,sep=":"),
          opening_date = `New Phenoadj based on intervals`) %>%
-  rename(subplot = RUTA...1, number = GENET...2) %>%
-  select(-`New Phenoadj based on intervals`) %>%
+  rename(subplot = RUTA...1, number = GENET...2,fate=Framgångredef...16) %>%
+  dplyr::select(-`New Phenoadj based on intervals`) %>%
   filter(!(subplot==8|subplot==9))
 data_id_flowers_89 <- data_id_flowers_89 %>%
-  select(RUTA,GENET,`Corrected pheno`) %>%
+  dplyr::select(RUTA,GENET,`Corrected pheno`,Framgångredef) %>%
   mutate(id = paste(RUTA,GENET,sep=":"),
          opening_date = `Corrected pheno`) %>%
-  rename(subplot = RUTA, number = GENET) %>%
-  select(-`Corrected pheno`)
+  rename(subplot = RUTA, number = GENET,fate=Framgångredef) %>%
+  dplyr::select(-`Corrected pheno`)
 ```
 
 See if the number of individuals in each subplot matches betwen individual data and individual flower data.
@@ -254,25 +256,25 @@ In how many ids are my calculations different from Johan's?
 ```{r}
 nrow(data_ids %>% filter(!near(avFD_a,avFD)) %>%
        # Using near() to avoid small differences in decimals
-       select(year,number,subplot,id,avFD,avFD_a))
+       dplyr::select(year,number,subplot,id,avFD,avFD_a))
 # None after editing data
 nrow(data_ids %>% filter(!near(FFD_a,FFD))%>%
-       select(year,number,subplot,id,FFD,FFD_a))
+       dplyr::select(year,number,subplot,id,FFD,FFD_a))
 # None after editing data
 nrow(data_ids %>% filter(!near(LFD_a,LFD))%>%
-       select(year,number,subplot,id,LFD,LFD_a))
+       dplyr::select(year,number,subplot,id,LFD,LFD_a))
 # None after editing data
 nrow(data_ids %>% filter(!near(SD_a,SD))%>%
-       select(year,number,subplot,id,SD,SD_a))
+       dplyr::select(year,number,subplot,id,SD,SD_a))
 # None after editing data
 nrow(data_ids %>% filter(!near(skew_a,skew))%>%
-       select(year,number,subplot,id,skew,skew_a))
+       dplyr::select(year,number,subplot,id,skew,skew_a))
 # 415 rows are different
 nrow(data_ids %>% filter(!near(kurt_a,kurt))%>%
-       select(year,number,subplot,id,kurt,kurt_a))
+       dplyr::select(year,number,subplot,id,kurt,kurt_a))
 # 377 rows are different
 nrow(data_ids %>% filter(!near(dur_a,dur))%>%
-       select(year,number,subplot,id,dur,dur_a))
+       dplyr::select(year,number,subplot,id,dur,dur_a))
 # None after editing data
 ```
 
@@ -345,7 +347,7 @@ So far I will keep only my calculated moments
 
 ```{r}
 data_ids<-data_ids%>%
-  select(number,subplot,id,n_fl,n_fr,fr_init,n_seed,n_preyed_seed,
+  dplyr::select(number,subplot,id,n_fl,n_fr,fr_set,n_seed,n_preyed_seed,
                  fitness,imp_seed_preyed,n_seed_per_fr,prop_seed_preyed,year,
                  avFD_a,FFD_a,MFD_a,LFD_a,SD_a,var_a,skew_a,kurt_a,dur_a)%>%
   rename_at(vars(ends_with("_a")), ~sub("_a","",.))
@@ -441,9 +443,45 @@ data_id_flowers<-rbind(data_id_flowers_87%>%
   left_join(dates_summary, by = c("year" = "year")) %>%
   mutate(opening_date_c=date_slope_c*opening_date+date_intercept_c,
          opening_date_v=date_slope_v*opening_date+date_intercept_v,
-         year=as.factor(year))
+         year=as.factor(year))%>%
+  mutate(fate=ifelse(fate==0,NA,fate)) 
+# Set one case where fate=0 to NA
 ```
 
+# Calculate prop_seed_preyed when unavailable
+
+```{r}
+data_ids<-data_ids%>%
+  mutate(prop_seed_preyed=ifelse(!is.na(prop_seed_preyed),
+                                 prop_seed_preyed,
+                                 ifelse(n_seed>0,
+                                        n_preyed_seed/n_seed,
+                                        NA)))
+```
+
+# Calculate fruit initiation and fruit maturation and add to individual data
+
+```{r}
+fr_calc<-left_join(
+  left_join(
+    data_id_flowers%>%
+      group_by(year,id)%>%summarise(n_fl_a=n()), # n_fl
+    data_id_flowers%>%filter(fate%in%c(2,3,4,5,7))%>%
+      group_by(year,id)%>% summarise(n_init_fr=n()) # n_init_fr
+    )%>%
+    mutate(n_init_fr=ifelse(is.na(n_init_fr),0,n_init_fr)),
+  data_id_flowers%>%filter(fate%in%c(5))%>%
+    group_by(year,id)%>%summarise(n_mat_intact_fr=n()) # n_mat_intact_fr
+  )%>%
+  mutate(n_mat_intact_fr=ifelse(n_init_fr>0&is.na(n_mat_intact_fr),
+                                0,n_mat_intact_fr))%>%
+  mutate(fr_init=n_init_fr/n_fl_a,
+         fr_mat=ifelse(n_init_fr==0,NA,n_mat_intact_fr/n_init_fr))
+```
+
+```{r}
+data_ids<-left_join(data_ids,fr_calc)
+```
 
 # Save clean data as .csv
 

@@ -67,7 +67,7 @@ ggplot(data_ids,aes(x=update(avFD_c,year=2000),y=year,fill=year,color=year))+
 ## FFD, MFD and LFD
 
 ```{r fig.height=5, fig.width=9}
-data_ids%>%select(year,id,FFD_c,MFD_c,LFD_c)%>%pivot_longer(cols=FFD_c:LFD_c,
+data_ids%>%dplyr::select(year,id,FFD_c,MFD_c,LFD_c)%>%pivot_longer(cols=FFD_c:LFD_c,
                                                        names_to="name")%>%
   ggplot(aes(x=update(value,year=2000),y=year,fill=name,color=name))+
   my_theme_legend()+
@@ -169,21 +169,21 @@ ggplot(data_ids,aes(x=kurt,y=year,fill=year,color=year))+
 
 ```{r fig.height=15, fig.width=5}
 grid.arrange(
-  data_ids%>%select(year,n_fl,avFD_v:LFD_v,SD:dur) %>%
+  data_ids%>%dplyr::select(year,n_fl,avFD_v:LFD_v,SD:dur) %>%
     filter(year==1987) %>%
-    select_if(is.numeric) %>% 
+    dplyr::select_if(is.numeric) %>% 
     cor(use="pairwise.complete.obs") %>%
     ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
     ggtitle("1987")+theme(legend.position="none"),
-  data_ids%>%select(year,n_fl,avFD_v:LFD_v,SD:dur) %>%
+  data_ids%>%dplyr::select(year,n_fl,avFD_v:LFD_v,SD:dur) %>%
     filter(year==1988) %>%
-    select_if(is.numeric) %>% 
+    dplyr::select_if(is.numeric) %>% 
     cor(use="pairwise.complete.obs") %>%
     ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
     ggtitle("1988")+theme(legend.position="none"),
-  data_ids%>%select(year,n_fl,avFD_v:LFD_v,SD:dur) %>%
+  data_ids%>%dplyr::select(year,n_fl,avFD_v:LFD_v,SD:dur) %>%
     filter(year==1989) %>%
-    select_if(is.numeric) %>% 
+    dplyr::select_if(is.numeric) %>% 
     cor(use="pairwise.complete.obs") %>%
     ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
     ggtitle("1989")+theme(legend.position="none"),
