@@ -124,46 +124,44 @@ data_id_flowers <- read_csv("data/clean/data_id_flowers.csv")
 data_weather<-read_csv("C:/Users/alici/Dropbox/SU/Projects/lathyrus/lathyrus_ms1/data/clean/weather_GDD.csv")
 ```
 
-# Figure 1 (not used)
+# Data manipulation
+
+## Correct errors in n_fl and n_fr
 
 ```{r}
-# Changes in mean
-mean_data<-data.frame(A_early=rnorm(500000,mean=63.2,sd=0.64),
-                      B_medium=rnorm(500000,mean=66.2,sd=0.64),
-                      C_late=rnorm(500000,mean=69.2,sd=0.64))%>%
-  pivot_longer(cols=A_early:C_late,names_to="names",values_to="values")
-summary_mean_data<-mean_data%>%
-  group_by(names)%>%
-  summarise(mean(values),var(values),skewness(values),kurtosis(values))
-summary_mean_data
-
-# Changes in variance
-var_data<-data.frame(A_low=rnorm(500000,mean=66.2,sd=0.34),
-                     B_medium=rnorm(500000,mean=66.2,sd=0.64),
-                     C_large=rnorm(500000,mean=66.2,sd=0.94))%>%
-  pivot_longer(cols=A_low:C_large,names_to="names",values_to="values")
-summary_var_data<-var_data%>%
-  group_by(names)%>%
-  summarise(mean(values),var(values),skewness(values),kurtosis(values))
-summary_var_data
-
-
-# Changes in skewness and kurtosis --> modify in Inkscape
-fig1_part<-grid.arrange(
-  ggplot(mean_data,aes(x=values,fill=names))+
-    geom_density(alpha=0.7)+
-    xlab("Opening date")+
-    ylab("Density")+my_theme()+ggtitle("A) Changes in mean")+
-    scale_fill_manual(values=c("#efedf5","#bcbddc","#756bb1")),
-  ggplot(var_data,aes(x=values,fill=names))+geom_density(alpha=0.7)+
-    xlab("Opening date")+
-    ylab("Density")+my_theme()+ggtitle("B) Changes in variance")+
-    scale_fill_manual(values=c("#efedf5","#bcbddc","#756bb1")),
-  ncol=2)
-ggsave(file="output/figures/fig1_part.svg", plot=fig1_part, width=10, height=4)
+filter(data_ids,n_fl!=n_fl_a) # n_fl_a is correct
 ```
 
-# Fig. 1
+```{r}
+filter(data_ids,n_fr!=n_mat_intact_fr) # n_mat_intact_fr is correct
+```
+
+```{r}
+data_ids<-data_ids%>%
+  dplyr::select(-n_fl)%>%
+  rename(n_fl=n_fl_a)
+```
+
+```{r}
+data_ids<-data_ids%>%
+  dplyr::select(-n_fr) # Use n_mat_intact_fr 
+```
+
+# Recalculate fruit set (not used), fruit initiation and fruit maturation
+
+```{r}
+data_ids<-data_ids%>%
+  mutate(n_mat_intact_fr=ifelse(is.na(n_mat_intact_fr),0,n_mat_intact_fr))
+```
+
+```{r}
+data_ids<-data_ids%>%
+  mutate(fr_set=n_mat_intact_fr/n_fl,
+         fr_init=n_init_fr/n_fl,
+         fr_mat=ifelse(n_init_fr>0,n_mat_intact_fr/n_init_fr,NA))
+```
+
+# Figure 1
 
 ```{r}
 curves_mean<-data.frame(
@@ -254,9 +252,21 @@ fig1<-grid.arrange(
 ggsave(file="output/figures/fig1.tiff", plot=fig1, width=12, height=10)
 ```
 
-# Descriptive
+# Ranges, means and SD of the four moments
 
-## Flowering phenology curves of individuals
+```{r}
+data_ids%>%
+  summarise(min_mean=min(avFD_v),max_mean=max(avFD_v),
+            mean_mean=mean(avFD_v),sd_mean=sd(avFD_v),
+            min_var=min(var,na.rm=T),max_var=max(var,na.rm=T),
+            mean_var=mean(var,na.rm=T),sd_var=sd(var,na.rm=T),
+            min_skew=min(skew,na.rm=T),max_skew=max(skew,na.rm=T),
+            mean_skew=mean(skew,na.rm=T),sd_skew=sd(skew,na.rm=T),
+            min_kurt=min(kurt,na.rm=T),max_kurt=max(kurt,na.rm=T),
+            mean_kurt=mean(kurt,na.rm=T),sd_kurt=sd(kurt,na.rm=T))
+```
+
+# Appendix 2: Flowering phenology curves of individuals
 
 ```{r}
 ids_years_1_2fl<-data_id_flowers%>%group_by(year,id)%>%mutate(count=n())%>%
@@ -291,16 +301,14 @@ plot_list<-map(id_chunks,~ggplot(.x,aes(x=opening_date_v,y=id,fill=year))+
 
 # save the plots as TIFF files
 walk2(plot_list, seq_along(plot_list), 
-      ~ ggsave(paste0("output/figures/myplot_", .y, ".tiff"), 
+      ~ ggsave(paste0("output/figures/Appendix2_", .y, ".tiff"), 
                plot = .x, width = 6.5, height = 9, units = "in", dpi = 300))
 ```
 
-## Distributions of the four moments
-
-### All years
+# Appendix 3: Histograms of the moments for all years
 
 ```{r}
-histograms_SI<-grid.arrange(
+Appendix3<-grid.arrange(
   # Mean
   ggplot(data_ids,aes(x=avFD_v))+
     geom_histogram(color="black",alpha=0.6,position="identity")+
@@ -322,14 +330,14 @@ histograms_SI<-grid.arrange(
     ggtitle("D)")+
     my_theme()+xlab("Kurtosis")+ylab("Count"),
   ncol=2)
-ggsave(histograms_SI,filename="output/figures/histograms_SI.tiff",
+ggsave(Appendix3,filename="output/figures/Appendix3.tiff",
        device="tiff",width=20,height=15,units="cm",dpi=300,compression="lzw")
 ```
 
-### By year
+# Appendix 4: Histograms of the moments for each year
 
 ```{r}
-histograms_SI_years<-grid.arrange(
+Appendix4<-grid.arrange(
   # Mean
   ggplot(data_ids,aes(x=avFD_v,fill=year))+
     geom_histogram(color="black",position="identity")+
@@ -355,88 +363,153 @@ histograms_SI_years<-grid.arrange(
     facet_grid(rows=vars(year))+ggtitle("D)")+
     my_theme()+xlab("Kurtosis")+ylab("Count"),
   ncol=2)
-ggsave(histograms_SI_years,filename="output/figures/histograms_SI_years.tiff",
+ggsave(Appendix4,filename="output/figures/Appendix4.tiff",
        device="tiff",width=20,height=25,units="cm",dpi=300,compression="lzw")
 ```
 
-## Ranges, means and SD
 
-```{r}
-data_ids%>%
-  summarise(min_mean=min(avFD_v),max_mean=max(avFD_v),
-            mean_mean=mean(avFD_v),sd_mean=sd(avFD_v),
-            min_var=min(var,na.rm=T),max_var=max(var,na.rm=T),
-            mean_var=mean(var,na.rm=T),sd_var=sd(var,na.rm=T),
-            min_skew=min(skew,na.rm=T),max_skew=max(skew,na.rm=T),
-            mean_skew=mean(skew,na.rm=T),sd_skew=sd(skew,na.rm=T),
-            min_kurt=min(kurt,na.rm=T),max_kurt=max(kurt,na.rm=T),
-            mean_kurt=mean(kurt,na.rm=T),sd_kurt=sd(kurt,na.rm=T))
+# Q1: Within- vs. among-individual components of variation
+
+```{r eval=FALSE, include=FALSE}
+brms_87<-brm(opening_date_v~1+(1|id),
+             data = subset(data_id_flowers,year==1987),
+             family = gaussian(),
+             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
+save(brms_87, file = "output/models/brms_87.rda")
 ```
 
-# Correct errors in n_fl and n_fr
-
-```{r}
-filter(data_ids,n_fl!=n_fl_a) # n_fl_a is correct
+```{r eval=FALSE, include=FALSE}
+brms_88<-brm(opening_date_v~1+(1|id),
+             data = subset(data_id_flowers,year==1988),
+             family = gaussian(),
+             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
+save(brms_88, file = "output/models/brms_88.rda")
 ```
 
-```{r}
-filter(data_ids,n_fr!=n_mat_intact_fr) # n_mat_intact_fr is correct
-```
-
-```{r}
-data_ids<-data_ids%>%
-  dplyr::select(-n_fl)%>%
-  rename(n_fl=n_fl_a)
+```{r eval=FALSE, include=FALSE}
+brms_89<-brm(opening_date_v~1+(1|id),
+             data = subset(data_id_flowers,year==1989),
+             family = gaussian(),
+             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
+save(brms_89, file = "output/models/brms_89.rda")
 ```
 
 ```{r}
-data_ids<-data_ids%>%
-  dplyr::select(-n_fr) # Use n_mat_intact_fr 
+plot(brms_87)
+plot(brms_88)
+plot(brms_89)
 ```
-
-# Recalculate fruit set, fruit initiation and fruit maturation
 
 ```{r}
-data_ids<-data_ids%>%
-  mutate(n_mat_intact_fr=ifelse(is.na(n_mat_intact_fr),0,n_mat_intact_fr))
+cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_87))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          mcmc_neff_hist(neff_ratio(brms_87))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          labels = c("A)","B)"),label_fontfamily="serif")
+cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_88))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          mcmc_neff_hist(neff_ratio(brms_88))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          labels = c("A)","B)"),label_fontfamily="serif")
+cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_89))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          mcmc_neff_hist(neff_ratio(brms_89))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          labels = c("A)","B)"),label_fontfamily="serif")
 ```
-
 
 ```{r}
-data_ids<-data_ids%>%
-  mutate(fr_set=n_mat_intact_fr/n_fl,
-         fr_init=n_init_fr/n_fl,
-         fr_mat=ifelse(n_init_fr>0,n_mat_intact_fr/n_init_fr,NA))
+summary(brms_87)
+summary(brms_88)
+summary(brms_89)
 ```
 
-# Differences in variables among years
+```{r}
+v_among_87 <- (VarCorr(brms_87, summary = FALSE)$id$sd)^2
+v_within_87 <- (VarCorr(brms_87, summary = FALSE)$residual$sd)^2
+prop_v_among_87 <- as.mcmc(v_among_87 / (v_among_87 + v_within_87))
+prop_v_within_87 <- as.mcmc(v_within_87 / (v_among_87 + v_within_87))
+summary(prop_v_among_87)
+summary(prop_v_within_87)
+plot(prop_v_among_87)
+plot(prop_v_within_87)
+```
+
+```{r}
+v_among_88 <- (VarCorr(brms_88, summary = FALSE)$id$sd)^2
+v_within_88 <- (VarCorr(brms_88, summary = FALSE)$residual$sd)^2
+prop_v_among_88 <- as.mcmc(v_among_88 / (v_among_88 + v_within_88))
+prop_v_within_88 <- as.mcmc(v_within_88 / (v_among_88 + v_within_88))
+summary(prop_v_among_88)
+summary(prop_v_within_88)
+plot(prop_v_among_88)
+plot(prop_v_within_88)
+```
+
+```{r}
+v_among_89 <- (VarCorr(brms_89, summary = FALSE)$id$sd)^2
+v_within_89 <- (VarCorr(brms_89, summary = FALSE)$residual$sd)^2
+prop_v_among_89 <- as.mcmc(v_among_89 / (v_among_89 + v_within_89))
+prop_v_within_89 <- as.mcmc(v_within_89 / (v_among_89 + v_within_89))
+summary(prop_v_among_89)
+summary(prop_v_within_89)
+plot(prop_v_among_89)
+plot(prop_v_within_89)
+```
+
+## Appendix 5: Proportions of variance
+
+```{r}
+full_join(
+  data.frame(among_mean=c(summary(prop_v_among_87)$statistics[1],
+                     summary(prop_v_among_88)$statistics[1],
+                     summary(prop_v_among_89)$statistics[1]))%>%
+    mutate(year=c(1987,1988,1989)),
+  data.frame(within_mean=c(summary(prop_v_within_87)$statistics[1],
+                      summary(prop_v_within_88)$statistics[1],
+                      summary(prop_v_within_89)$statistics[1]))%>%
+    mutate(year=c(1987,1988,1989)))%>%
+    pivot_longer(cols=c("among_mean","within_mean"),
+                 names_to="effect",values_to="mean")%>%
+  mutate(effect=ifelse(effect=="among_mean","among","within"))%>%
+  full_join(data.frame(among_lower=c(coda::HPDinterval(prop_v_among_87)[1],
+                                     coda::HPDinterval(prop_v_among_88)[1],
+                                     coda::HPDinterval(prop_v_among_89)[1]),
+                       among_upper=c(coda::HPDinterval(prop_v_among_87)[2],
+                                     coda::HPDinterval(prop_v_among_88)[2],
+                                     coda::HPDinterval(prop_v_among_89)[2]),
+                       within_lower=c(coda::HPDinterval(prop_v_within_87)[1],
+                                      coda::HPDinterval(prop_v_within_88)[1],
+                                      coda::HPDinterval(prop_v_within_89)[1]),
+                       within_upper=c(coda::HPDinterval(prop_v_within_87)[2],
+                                      coda::HPDinterval(prop_v_within_88)[2],
+                                      coda::HPDinterval(prop_v_within_89)[2]))%>%
+              mutate(year=c(1987,1988,1989))%>%
+            pivot_longer(cols=c("among_lower","among_upper",
+                                "within_lower","within_upper"),
+                 names_to=c("effect","cat"),names_sep="_",values_to="value")%>%
+              pivot_wider(names_from="cat",values_from="value"))%>%
+  mutate(year=factor(year))%>%
+  ggplot(aes(x=year,y=mean,ymin=lower,ymax=upper,color=effect))+
+  geom_errorbar(linewidth=0.5,width=0.2,position=position_dodge(0.3))+
+  geom_point(size=2,position=position_dodge(0.3))+
+  my_theme()+xlab("Year")+ylab("Proportion of variance")
+ggsave(file="output/figures/Appendix5.tiff", width=4, height=3.5)
+```
+
+# Appendix 6: Differences in moments among years
 
 ```{r}
 Anova(lm(avFD_v~year,data_ids))
 Anova(lm(var~year,data_ids))
 Anova(lm(skew~year,data_ids))
 Anova(lm(kurt~year,data_ids))
-# Fruit set
-Anova(glm(cbind(fr_set=n_mat_intact_fr,
-                fr_no_set=n_fl-n_mat_intact_fr)~year,data_ids,family="binomial")) 
-Anova(lm(asin(sqrt(fr_set))~year,data_ids)) 
-# Fruit initiation
-Anova(glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~year,
-          data_ids,family="binomial")) 
-Anova(lm(asin(sqrt(fr_init))~year,data_ids)) 
-# Fruit maturation
-Anova(glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~year,
-          data_ids,family="binomial"))
-Anova(lm(asin(sqrt(fr_mat))~year,data_ids)) 
-# Proportion of seeds escaping predation
-Anova(glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                pr_seeds=round(n_preyed_seed))~year,
-          data_ids,family="binomial"))
-Anova(lm(asin(sqrt(1-prop_seed_preyed))~year,data_ids)) 
-# Fitness
-Anova(lm(fitness~year,data_ids))
 ```
 
 ```{r}
@@ -459,28 +532,6 @@ letters_kurt<-as.data.frame.list(
   multcompLetters4(aov(kurt~year,data_ids),
                    TukeyHSD(aov(kurt~year,data_ids)))$year)%>%
   dplyr::select(Letters)%>%
-  rownames_to_column(var="year")
-# Using lms with arcsine transformation for proportions
-letters_fr_set<-data.frame(
-  Letters=cld(glht(lm(asin(sqrt(fr_set))~year,data_ids),
-                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
-  rownames_to_column(var="year")
-letters_fr_init<-data.frame(
-  Letters=cld(glht(lm(asin(sqrt(fr_init))~year,data_ids),
-                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
-  rownames_to_column(var="year")
-letters_fr_mat<-data.frame(
-  Letters=cld(glht(lm(asin(sqrt(fr_mat))~year,data_ids),
-                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
-  rownames_to_column(var="year")
-letters_seeds_escpred<-data.frame(
-  Letters=cld(glht(lm(asin(sqrt(1-prop_seed_preyed))~year,data_ids),
-                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
-  rownames_to_column(var="year")
-# Using lms with square root transformation for fitness
-letters_sel<-data.frame(
-  Letters=cld(glht(lm(sqrt(fitness)~year,data_ids),
-                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
   rownames_to_column(var="year")
 ```
 
@@ -513,7 +564,161 @@ letters_sel<-data.frame(
 # ggsave(diffs_moments_years_SI,
 #        filename="output/figures/diffs_moments_years_SI.tiff",
 #        device="tiff",width=26,height=8,units="cm",dpi=300,compression="lzw")
-# 
+```
+
+```{r}
+Appendix6<-grid.arrange(
+  ggerrorplot(data_ids,x="year",y="avFD_v",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Mean")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(avFD_v)+(sd(avFD_v)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.1,label=letters_mean$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("A)")+  
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="var",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Variance")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(var,na.rm=T)+
+                            (sd(var,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.005,label=letters_var$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("B)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="skew",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Skewness")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(skew,na.rm=T)+
+                            (sd(skew,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.007,label=letters_skew$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("C)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="kurt",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Kurtosis")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(kurt,na.rm=T)+
+                            (sd(kurt,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.009,label=letters_kurt$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("D)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ncol=2)
+Appendix6
+ggsave(Appendix6,
+       filename="output/figures/Appendix6.tiff",
+       device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
+```
+
+# Appendix 7: Correlations of the 4 moments using all data
+
+```{r}
+data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+  rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+  ungroup()%>%
+  select_if(is.numeric) %>% 
+  cor(use="pairwise.complete.obs") %>%
+  ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+  theme(legend.position="none")+my_theme()+xlab(NULL)+ylab(NULL)
+ggsave(filename="output/figures/Appendix7.tiff",
+       device="tiff",width=10,height=8,units="cm",dpi=300,compression="lzw")
+```
+
+# Appendix 8: Correlations of the 4 moments for each year
+
+```{r}
+Appendix8<-grid.arrange(
+  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+    filter(year==1987) %>%
+    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+    select_if(is.numeric) %>% 
+    cor(use="pairwise.complete.obs") %>%
+    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+    ggtitle("1987")+theme(legend.position="none")+
+    my_theme()+xlab(NULL)+ylab(NULL),
+  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+    filter(year==1988) %>%
+    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+    select_if(is.numeric) %>% 
+    cor(use="pairwise.complete.obs") %>%
+    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+    ggtitle("1988")+theme(legend.position="none")+
+    my_theme()+xlab(NULL)+ylab(NULL),
+  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+    filter(year==1989) %>%
+    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+    select_if(is.numeric) %>% 
+    cor(use="pairwise.complete.obs") %>%
+    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+    ggtitle("1989")+theme(legend.position="none")+
+    my_theme()+xlab(NULL)+ylab(NULL),
+  ncol=3)
+ggsave(Appendix8,filename="output/figures/Appendix8.tiff",
+       device="tiff",width=25,height=10,units="cm",dpi=300,compression="lzw")
+```
+
+OK? Check VIFs of each model.
+
+# Appendix 9: Differences in fitness components among years
+
+```{r}
+# Fruit set
+Anova(glm(cbind(fr_set=n_mat_intact_fr,
+                fr_no_set=n_fl-n_mat_intact_fr)~year,data_ids,family="binomial")) 
+Anova(lm(asin(sqrt(fr_set))~year,data_ids)) 
+# Fruit initiation
+Anova(glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~year,
+          data_ids,family="binomial")) 
+Anova(lm(asin(sqrt(fr_init))~year,data_ids)) 
+# Fruit maturation
+Anova(glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~year,
+          data_ids,family="binomial"))
+Anova(lm(asin(sqrt(fr_mat))~year,data_ids)) 
+# Proportion of seeds escaping predation
+Anova(glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                pr_seeds=round(n_preyed_seed))~year,
+          data_ids,family="binomial"))
+Anova(lm(asin(sqrt(1-prop_seed_preyed))~year,data_ids)) 
+# Fitness
+Anova(lm(fitness~year,data_ids))
+```
+
+```{r}
+# Using lms with arcsine transformation for proportions
+letters_fr_set<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(fr_set))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+letters_fr_init<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(fr_init))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+letters_fr_mat<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(fr_mat))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+letters_seeds_escpred<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(1-prop_seed_preyed))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+# Using lms with square root transformation for fitness
+letters_sel<-data.frame(
+  Letters=cld(glht(lm(sqrt(fitness)~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+```
+
+```{r}
 # diffs_vars_years_SI<-ggplot(
 #   rbind(
 #   left_join(data.frame(ggpredict(
@@ -583,64 +788,11 @@ plot(ggpredict(lm(fr_set_asin~year,data_ids)))
 ```
 
 ```{r}
-diffs_moments_years_SI<-grid.arrange(
-  ggerrorplot(data_ids,x="year",y="avFD_v",combine=F,size=0.5,
-              desc_stat="mean_se",error.plot = "errorbar",add = "none",
-              xlab="Year")+my_theme()+ylab("Mean")+
-    stat_summary(geom="point",size=2,fun.y="mean")+
-    geom_text(data=data_ids%>%group_by(year)%>%
-                summarize(mean_se=mean(avFD_v)+(sd(avFD_v)/sqrt(n()))),
-            aes(x=year,y=mean_se+0.1,label=letters_mean$Letters),
-            vjust=-0.2,family="serif")+
-    ggtitle("A)")+  
-    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
-  ggerrorplot(data_ids,x="year",y="var",combine=F,size=0.5,
-              desc_stat="mean_se",error.plot = "errorbar",add = "none",
-              xlab="Year")+my_theme()+ylab("Variance")+
-    stat_summary(geom="point",size=2,fun.y="mean")+
-    geom_text(data=data_ids%>%group_by(year)%>%
-                summarize(mean_se=mean(var,na.rm=T)+
-                            (sd(var,na.rm=T)/sqrt(n()))),
-            aes(x=year,y=mean_se+0.005,label=letters_var$Letters),
-            vjust=-0.2,family="serif")+
-    ggtitle("B)")+
-    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
-  ggerrorplot(data_ids,x="year",y="skew",combine=F,size=0.5,
-              desc_stat="mean_se",error.plot = "errorbar",add = "none",
-              xlab="Year")+my_theme()+ylab("Skewness")+
-    stat_summary(geom="point",size=2,fun.y="mean")+
-    geom_text(data=data_ids%>%group_by(year)%>%
-                summarize(mean_se=mean(skew,na.rm=T)+
-                            (sd(skew,na.rm=T)/sqrt(n()))),
-            aes(x=year,y=mean_se+0.007,label=letters_skew$Letters),
-            vjust=-0.2,family="serif")+
-    ggtitle("C)")+
-    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
-  ggerrorplot(data_ids,x="year",y="kurt",combine=F,size=0.5,
-              desc_stat="mean_se",error.plot = "errorbar",add = "none",
-              xlab="Year")+my_theme()+ylab("Kurtosis")+
-    stat_summary(geom="point",size=2,fun.y="mean")+
-    geom_text(data=data_ids%>%group_by(year)%>%
-                summarize(mean_se=mean(kurt,na.rm=T)+
-                            (sd(kurt,na.rm=T)/sqrt(n()))),
-            aes(x=year,y=mean_se+0.009,label=letters_kurt$Letters),
-            vjust=-0.2,family="serif")+
-    ggtitle("D)")+
-    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
-  ncol=2)
-diffs_moments_years_SI
-ggsave(diffs_moments_years_SI,
-       filename="output/figures/diffs_moments_years_SI.tiff",
-       device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
-```
-
-```{r}
 data_ids$prop_seeds_escpred<-1-data_ids$prop_seed_preyed
 ```
 
-
 ```{r}
-diffs_vars_years_SI<-grid.arrange(
+Appendix9<-grid.arrange(
   ggerrorplot(data_ids,x="year",y="fr_init",combine=F,size=0.5,
               desc_stat="mean_se",error.plot = "errorbar",add = "none",
               xlab="Year")+my_theme()+ylab("Fruit initiation")+
@@ -685,608 +837,17 @@ diffs_vars_years_SI<-grid.arrange(
     ggtitle("D)")+
     theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
   ncol=2)
-diffs_vars_years_SI
-ggsave(diffs_vars_years_SI,
-       filename="output/figures/diffs_vars_years_SI.tiff",
+Appendix9
+ggsave(Appendix9,
+       filename="output/figures/Appendix9.tiff",
        device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
 ```
 
-# Correlations
+# Q2: Phenotypic selection on within-individual variation
 
-I will fit models using traits representing the 4 moments of the distribution (mean: avFD, variance: var, skewness: skew and kurtosis: kurt)
+Phenotypic selection models with n_fl
 
-Check the correlations of these 4 traits using all data:
-
-```{r}
-data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
-  rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
-  ungroup()%>%
-  select_if(is.numeric) %>% 
-  cor(use="pairwise.complete.obs") %>%
-  ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
-  theme(legend.position="none")+my_theme()+xlab(NULL)+ylab(NULL)
-ggsave(filename="output/figures/corr_SI.tiff",
-       device="tiff",width=10,height=8,units="cm",dpi=300,compression="lzw")
-```
-
-Check the yearly correlations:
-
-```{r}
-corr_SI_years<-grid.arrange(
-  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
-    filter(year==1987) %>%
-    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
-    select_if(is.numeric) %>% 
-    cor(use="pairwise.complete.obs") %>%
-    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
-    ggtitle("1987")+theme(legend.position="none")+
-    my_theme()+xlab(NULL)+ylab(NULL),
-  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
-    filter(year==1988) %>%
-    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
-    select_if(is.numeric) %>% 
-    cor(use="pairwise.complete.obs") %>%
-    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
-    ggtitle("1988")+theme(legend.position="none")+
-    my_theme()+xlab(NULL)+ylab(NULL),
-  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
-    filter(year==1989) %>%
-    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
-    select_if(is.numeric) %>% 
-    cor(use="pairwise.complete.obs") %>%
-    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
-    ggtitle("1989")+theme(legend.position="none")+
-    my_theme()+xlab(NULL)+ylab(NULL),
-  ncol=3)
-ggsave(corr_SI_years,filename="output/figures/corr_SI_years.tiff",
-       device="tiff",width=25,height=10,units="cm",dpi=300,compression="lzw")
-```
-
-Probaly OK? Check VIFs of each model.
-
-# Multivariate GLMs
-
-## FRUIT SET (NOT USED)
-
-Using (within-year) standardized traits.
-
-### Global models (SI)
-
-#### Linear effects
-
-```{r}
-fr_set_linear<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~avFD_std+var_std+
-                      skew_std+kurt_std+year+ 
-                      # Include main effect of year here
-                      # but not in selection models!
-                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
-                    data_ids,family="binomial")
-tab_model(fr_set_linear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Fruit set, linear effects"))
-Anova(fr_set_linear) # Use type II (now) or III?
-check_collinearity(glm(cbind(ffr_set=n_mat_intact_fr,
-                             fr_no_set=n_fl-n_mat_intact_fr)~avFD_std+var_std+
-                         skew_std+kurt_std+year,
-                       data_ids,family="binomial"))
-```
-
-According to Anova, differences among years in the effects of avFD, skew and kurt.
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(fr_set_linear,
-               terms=c("avFD_std [all]","year"))) # Significant diffs among years
-plot(ggpredict(fr_set_linear,
-               terms=c("var_std [all]"))) # Main effect signficant
-plot(ggpredict(fr_set_linear,
-               terms=c("skew_std [all]","year"))) # Significant diffs among years
-plot(ggpredict(fr_set_linear,
-               terms=c("kurt_std [all]","year"))) # Significant diffs among years
-```
-
-#### Non-linear effects
-
-```{r}
-fr_set_nonlinear<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std+year+ 
-                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
-                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
-                         I(avFD_std^2):year+I(var_std^2):year+
-                         I(skew_std^2):year+I(kurt_std^2):year,
-                       data_ids,family="binomial")
-tab_model(fr_set_nonlinear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Fruit set, non linear effects"))
-Anova(fr_set_nonlinear) # Use type II (now) or III?
-```
-
-None of the quadratic effects is significant.
-
-Ratio of n observations to n parameters in the model:
-
-```{r}
-nobs(fr_set_nonlinear)/dim(model.matrix(fr_set_nonlinear))[2]
-```
-
-OK. If including interactions, it would be lower than 10.
-Similar problem with yearly models, so not including interactions in any model so far.
-
-### Yearly models
-
-#### Linear effects
-
-```{r}
-fr_set_linear_87<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                       subset(data_ids,year==1987),family="binomial")
-fr_set_linear_88<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                    subset(data_ids,year==1988),family="binomial")
-fr_set_linear_89<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                    subset(data_ids,year==1989),family="binomial")
-tab_model(fr_set_linear_87,fr_set_linear_88,fr_set_linear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Fruit set, linear effects")
-check_collinearity(fr_set_linear_87)
-check_collinearity(fr_set_linear_88)
-check_collinearity(fr_set_linear_89)
-Anova(fr_set_linear_87)
-Anova(fr_set_linear_88)
-Anova(fr_set_linear_89) 
-```
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(fr_set_linear_87,terms=c("var_std [all]"))) 
-plot(ggpredict(fr_set_linear_87,terms=c("skew_std [all]"))) 
-plot(ggpredict(fr_set_linear_87,terms=c("kurt_std [all]"))) 
-```
-
-```{r}
-plot(ggpredict(fr_set_linear_88,terms=c("avFD_std [all]"))) 
-```
-
-```{r}
-plot(ggpredict(fr_set_linear_88,terms=c("avFD_std [all]"))) 
-plot(ggpredict(fr_set_linear_88,terms=c("skew_std [all]"))) 
-```
-
-#### Non-linear effects
-
-```{r}
-fr_set_nonlinear_87<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                          subset(data_ids,year==1987),family="binomial")
-fr_set_nonlinear_88<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                    subset(data_ids,year==1988),family="binomial")
-fr_set_nonlinear_89<-glm(cbind(fr_set=n_mat_intact_fr,
-                          fr_no_set=n_fl-n_mat_intact_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                    subset(data_ids,year==1989),family="binomial")
-tab_model(fr_set_nonlinear_87,fr_set_nonlinear_88,fr_set_nonlinear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Fruit set, nonlinear effects")
-Anova(fr_set_nonlinear_87)
-Anova(fr_set_nonlinear_88)
-Anova(fr_set_nonlinear_89) 
-```
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(fr_set_nonlinear_88,terms=c("var_std [all]"))) 
-```
-
-## FRUIT INITIATION
-
-Using (within-year) standardized traits.
-
-### Global models (SI)
-
-#### Linear effects
-
-```{r}
-fr_init_linear<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~avFD_std+var_std+
-                      skew_std+kurt_std+year+ 
-                      # Include main effect of year here
-                      # but not in selection models!
-                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
-                    data_ids,family="binomial")
-tab_model(fr_init_linear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Fruit initiation, linear effects"))
-Anova(fr_init_linear) # Use type II (now) or III?
-check_collinearity(glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~avFD_std+var_std+
-                         skew_std+kurt_std+year,
-                       data_ids,family="binomial"))
-```
-
-#### Non-linear effects
-
-```{r}
-fr_init_nonlinear<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                         avFD_std+var_std+skew_std+kurt_std+year+ 
-                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
-                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
-                         I(avFD_std^2):year+I(var_std^2):year+
-                         I(skew_std^2):year+I(kurt_std^2):year,
-                       data_ids,family="binomial")
-tab_model(fr_init_nonlinear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Fruit initiation, non linear effects"))
-Anova(fr_init_nonlinear) # Use type II (now) or III?
-```
-
-### Yearly models
-
-#### Linear effects
-
-```{r}
-fr_init_linear_87<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                       subset(data_ids,year==1987),family="binomial")
-fr_init_linear_88<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                    subset(data_ids,year==1988),family="binomial")
-fr_init_linear_89<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                    subset(data_ids,year==1989),family="binomial")
-tab_model(fr_init_linear_87,fr_init_linear_88,fr_init_linear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Fruit initiation, linear effects")
-check_collinearity(fr_init_linear_87)
-check_collinearity(fr_init_linear_88)
-check_collinearity(fr_init_linear_89)
-Anova(fr_init_linear_87)
-Anova(fr_init_linear_88)
-Anova(fr_init_linear_89) 
-```
-
-#### Non-linear effects
-
-```{r}
-fr_init_nonlinear_87<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                          subset(data_ids,year==1987),family="binomial")
-fr_init_nonlinear_88<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                    subset(data_ids,year==1988),family="binomial")
-fr_init_nonlinear_89<-glm(cbind(fr_init=n_init_fr,
-                fr_no_init=n_fl-n_init_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                    subset(data_ids,year==1989),family="binomial")
-tab_model(fr_init_nonlinear_87,fr_init_nonlinear_88,fr_init_nonlinear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Fruit initiation, nonlinear effects")
-Anova(fr_init_nonlinear_87)
-Anova(fr_init_nonlinear_88)
-Anova(fr_init_nonlinear_89) 
-```
-
-## FRUIT MATURATION
-
-Using (within-year) standardized traits.
-
-### Global models (SI)
-
-#### Linear effects
-
-```{r}
-fr_mat_linear<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~avFD_std+var_std+
-                      skew_std+kurt_std+year+ 
-                      # Include main effect of year here
-                      # but not in selection models!
-                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
-                    data_ids,family="binomial")
-tab_model(fr_mat_linear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Fruit maturation, linear effects"))
-Anova(fr_mat_linear) # Use type II (now) or III?
-check_collinearity(glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~avFD_std+var_std+
-                         skew_std+kurt_std+year,
-                       data_ids,family="binomial"))
-```
-
-#### Non-linear effects
-
-```{r}
-fr_mat_nonlinear<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std+year+ 
-                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
-                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
-                         I(avFD_std^2):year+I(var_std^2):year+
-                         I(skew_std^2):year+I(kurt_std^2):year,
-                       data_ids,family="binomial")
-tab_model(fr_mat_nonlinear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Fruit maturation, non linear effects"))
-Anova(fr_mat_nonlinear) # Use type II (now) or III?
-```
-
-### Yearly models
-
-#### Linear effects
-
-```{r}
-fr_mat_linear_87<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                       subset(data_ids,year==1987),family="binomial")
-fr_mat_linear_88<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                    subset(data_ids,year==1988),family="binomial")
-fr_mat_linear_89<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                         avFD_std+var_std+skew_std+kurt_std,
-                    subset(data_ids,year==1989),family="binomial")
-tab_model(fr_mat_linear_87,fr_mat_linear_88,fr_mat_linear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Fruit maturation, linear effects")
-check_collinearity(fr_mat_linear_87)
-check_collinearity(fr_mat_linear_88)
-check_collinearity(fr_mat_linear_89)
-Anova(fr_mat_linear_87)
-Anova(fr_mat_linear_88)
-Anova(fr_mat_linear_89) 
-```
-
-#### Non-linear effects
-
-```{r}
-fr_mat_nonlinear_87<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                          subset(data_ids,year==1987),family="binomial")
-fr_mat_nonlinear_88<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                    subset(data_ids,year==1988),family="binomial")
-fr_mat_nonlinear_89<-glm(cbind(fr_mat=n_mat_intact_fr,
-                fr_no_mat=n_init_fr-n_mat_intact_fr)~
-                            avFD_std+var_std+skew_std+kurt_std+
-                            I(avFD_std^2)+I(var_std^2)+
-                            I(skew_std^2)+I(kurt_std^2),
-                    subset(data_ids,year==1989),family="binomial")
-tab_model(fr_mat_nonlinear_87,fr_mat_nonlinear_88,fr_mat_nonlinear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Fruit maturation, nonlinear effects")
-Anova(fr_mat_nonlinear_87)
-Anova(fr_mat_nonlinear_88)
-Anova(fr_mat_nonlinear_89) 
-```
-
-## SEEDS ESCAPING PREDATION
-
-Using (within-year) standardized traits.
-
-### Global models (SI)
-
-#### Linear effects
-
-```{r}
-seed_escpred_linear<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                        pr_seeds=round(n_preyed_seed))~
-                          avFD_std+var_std+skew_std+kurt_std+year+ 
-                          avFD_std:year+var_std:year+
-                          skew_std:year+kurt_std:year,
-                        data_ids,family="binomial")
-tab_model(seed_escpred_linear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Seeds escaping predation, linear effects"))
-Anova(seed_escpred_linear)
-check_collinearity(glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                        pr_seeds=round(n_preyed_seed))~
-                          avFD_std+var_std+skew_std+kurt_std+year,
-                        data_ids,family="binomial"))
-```
-
-According to Anova, differences among years in the effects of avFD and skew.
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(seed_escpred_linear,terms=c("avFD_std [all]","year"))) 
-# Significant diffs among years
-plot(ggpredict(seed_escpred_linear,terms=c("var_std [all]"))) 
-# Main effect signficant
-plot(ggpredict(seed_escpred_linear,terms=c("year [all]"))) 
-# Main effect signficant
-plot(ggpredict(seed_escpred_linear,terms=c("skew_std [all]","year"))) 
-# Significant diffs among years
-```
-
-#### Non-linear effects
-
-```{r}
-seed_escpred_nonlinear<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                        pr_seeds=round(n_preyed_seed))~
-                          avFD_std+var_std+skew_std+kurt_std+year+ 
-                          avFD_std:year+var_std:year+
-                          skew_std:year+kurt_std:year+
-                          I(avFD_std^2)+I(var_std^2)+
-                          I(skew_std^2)+I(kurt_std^2)+
-                          I(avFD_std^2):year+I(var_std^2):year+
-                          I(skew_std^2):year+I(kurt_std^2):year,
-                        data_ids,family="binomial")
-tab_model(seed_escpred_nonlinear,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("Seeds escaping predation, non linear effects"))
-Anova(seed_escpred_nonlinear) # Use type II (now) or III?
-```
-
-Significant non-linear effects according to Anova: I(var_std^2), I(skew_std^2), year:I(avFD_std^2), year:I(skew_std^2)
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(seed_escpred_nonlinear,terms=c("var_std [all]"))) 
-# Quadratic effect
-plot(ggpredict(seed_escpred_nonlinear,terms=c("skew_std [all]"))) 
-# Quadratic effect
-plot(ggpredict(seed_escpred_nonlinear,terms=c("avFD_std [all]","year"))) 
-# Quadratic effect, differences among years
-plot(ggpredict(seed_escpred_nonlinear,terms=c("skew_std [all]","year"))) 
-# Quadratic effect, differences among years
-```
-
-### Yearly models
-
-#### Linear effects
-
-```{r}
-seed_escpred_linear_87<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                                  pr_seeds=round(n_preyed_seed))~
-                              avFD_std+var_std+skew_std+kurt_std,
-                            subset(data_ids,year==1987&n_seed>0),
-                            family="binomial")
-data_seed_esc_pred_88<-subset(data_ids,year==1988&n_seed>0&
-                                !is.na(avFD_std)&!is.na(var_std)&
-                                !is.na(skew_std)&!is.na(kurt_std))
-seed_escpred_linear_88<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                                  pr_seeds=round(n_preyed_seed))~
-                              avFD_std+var_std+skew_std+kurt_std,
-                            data_seed_esc_pred_88,
-                            family="binomial")
-seed_escpred_linear_89<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
-                                  pr_seeds=round(n_preyed_seed))~
-                              avFD_std+var_std+skew_std+kurt_std,
-                            subset(data_ids,year==1989&n_seed>0),
-                            family="binomial")
-tab_model(seed_escpred_linear_87,seed_escpred_linear_88,seed_escpred_linear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Seeds escaping predation, linear effects")
-check_collinearity(seed_escpred_linear_87)
-check_collinearity(seed_escpred_linear_88)
-check_collinearity(seed_escpred_linear_89)
-Anova(seed_escpred_linear_87)
-Anova(seed_escpred_linear_88)
-Anova(seed_escpred_linear_89)
-```
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(seed_escpred_linear_87,terms=c("avFD_std [all]"))) 
-plot(ggpredict(seed_escpred_linear_87,terms=c("var_std [all]"))) 
-plot(ggpredict(seed_escpred_linear_87,terms=c("skew_std [all]"))) 
-plot(ggpredict(seed_escpred_linear_87,terms=c("kurt_std [all]"))) 
-```
-
-```{r}
-plot(ggpredict(seed_escpred_linear_88,terms=c("avFD_std [all]"))) 
-plot(ggpredict(seed_escpred_linear_88,terms=c("var_std [all]"))) 
-plot(ggpredict(seed_escpred_linear_88,terms=c("skew_std [all]"))) 
-```
-
-```{r}
-plot(ggpredict(seed_escpred_linear_89,terms=c("var_std [all]"))) 
-plot(ggpredict(seed_escpred_linear_89,terms=c("skew_std [all]"))) 
-```
-
-#### Non-linear effects
-
-```{r}
-seed_escpred_nonlinear_87<-glm(cbind(npr_seeds=round(n_seed)-
-                                       round(n_preyed_seed),
-                                     pr_seeds=round(n_preyed_seed))~
-                                 avFD_std+var_std+skew_std+kurt_std+
-                                 I(avFD_std^2)+I(var_std^2)+
-                                 I(skew_std^2)+I(kurt_std^2),
-                               subset(data_ids,year==1987&n_seed>0),
-                               family="binomial")
-seed_escpred_nonlinear_88<-glm(cbind(npr_seeds=round(n_seed)-
-                                       round(n_preyed_seed),
-                                     pr_seeds=round(n_preyed_seed))~
-                                 avFD_std+var_std+skew_std+kurt_std+
-                                 I(avFD_std^2)+I(var_std^2)+
-                                 I(skew_std^2)+I(kurt_std^2),
-                               subset(data_ids,year==1988&n_seed>0),
-                               family="binomial")
-seed_escpred_nonlinear_89<-glm(cbind(npr_seeds=round(n_seed)-
-                                       round(n_preyed_seed),
-                                     pr_seeds=round(n_preyed_seed))~
-                                 avFD_std+var_std+skew_std+kurt_std+
-                                 I(avFD_std^2)+I(var_std^2)+
-                                 I(skew_std^2)+I(kurt_std^2),
-                               subset(data_ids,year==1989&n_seed>0),
-                               family="binomial")
-# nobs(seed_escpred_nonlinear_89)/
-# dim(model.matrix(seed_escpred_nonlinear_89))[2] = 7.2
-# Careful! Only case when this ratio is <10
-tab_model(seed_escpred_nonlinear_87,seed_escpred_nonlinear_88,
-          seed_escpred_nonlinear_89,
-          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
-          dv.labels=c("1987","1988","1989"),
-          title="Seeds escaping predation, nonlinear effects")
-Anova(seed_escpred_nonlinear_87)
-Anova(seed_escpred_nonlinear_88)
-Anova(seed_escpred_nonlinear_89) 
-```
-
-##### Plot predictions
-
-```{r}
-plot(ggpredict(seed_escpred_nonlinear_87,terms=c("skew_std [all]")))
-```
-
-```{r}
-plot(ggpredict(seed_escpred_nonlinear_88,terms=c("avFD_std [all]")))
-```
-
-```{r}
-plot(ggpredict(seed_escpred_nonlinear_89,terms=c("avFD_std [all]")))
-```
-
-## PHENOTYPIC SELECTION with n_fl
-
-Try with n_fl --> log --> std
+n_fl --> log --> std
 
 ```{r}
 data_ids<-data_ids%>%
@@ -1295,12 +856,11 @@ data_ids<-data_ids%>%
   mutate(n_fl_log_std=as.vector(scale(n_fl_log)))
 ```
 
-
 Using (within-year) standardized traits.
 
-### Global models  (SI)
+## Appendix 10: Global models phenotypic selection with n_fl
 
-#### Linear effects
+### Linear effects
 
 Including only linear effects and interactions with year.
 
@@ -1321,14 +881,7 @@ check_collinearity(lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+n_fl_std,
 
 According to Anova, no differences among years.
 
-##### Plot predictions
-
-```{r}
-plot(ggpredict(sel_nfl_linear,terms=c("var_std [all]")))
-plot(ggpredict(sel_nfl_linear,terms=c("skew_std [all]")))
-```
-
-##### BCA intervals
+#### BCA intervals
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -1473,7 +1026,7 @@ BCIs_sel_nfl_linear
 
 Similar to significances with Anova
 
-#### Non-linear effects
+### Non-linear effects
 
 ```{r}
 sel_nfl_nonlinear<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
@@ -1494,7 +1047,7 @@ plot(check_collinearity(sel_nfl_nonlinear))
 
 Only the quadratic effect of flower number is significant.
 
-##### BCA intervals
+#### BCA intervals
 
 Only for non-linear terms
 
@@ -1645,9 +1198,10 @@ save(BCIs_sel_nfl_nonlinear,file="output/BCIs_sel_nfl_nonlinear.RData")
 BCIs_sel_nfl_nonlinear
 ```
 
-### Yearly models
 
-#### Linear effects
+## Table 1: Yearly models
+
+### Linear effects
 
 ```{r}
 sel_nfl_linear_87<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
@@ -1677,16 +1231,9 @@ Anova(sel_nfl_linear_88)
 Anova(sel_nfl_linear_89)
 ```
 
-##### Plot predictions
+#### BCA intervals
 
-```{r}
-plot(ggpredict(sel_nfl_linear_87,terms=c("var_std [all]")))
-plot(ggpredict(sel_nfl_linear_89,terms=c("skew_std [all]")))
-```
-
-##### BCA intervals
-
-###### 1987
+##### 1987
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -1751,7 +1298,7 @@ save(BCIs_sel_nfl_linear_87,file="output/BCIs_sel_nfl_linear_87.RData")
 BCIs_sel_nfl_linear_87
 ```
 
-###### 1988
+##### 1988
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -1816,7 +1363,7 @@ save(BCIs_sel_nfl_linear_88,file="output/BCIs_sel_nfl_linear_88.RData")
 BCIs_sel_nfl_linear_88
 ```
 
-###### 1989
+##### 1989
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -1881,7 +1428,7 @@ save(BCIs_sel_nfl_linear_89,file="output/BCIs_sel_nfl_linear_89.RData")
 BCIs_sel_nfl_linear_89
 ```
 
-#### Non-linear effects
+### Non-linear effects
 
 ```{r}
 sel_nfl_nonlinear_87<-lm(fitness_rel~avFD_std+var_std+
@@ -1914,9 +1461,9 @@ Anova(sel_nfl_nonlinear_88)
 Anova(sel_nfl_nonlinear_89)
 ```
 
-##### BCA intervals
+#### BCA intervals
 
-###### 1987
+##### 1987
 
 Only for non-linear terms
 
@@ -1983,7 +1530,7 @@ save(BCIs_sel_nfl_nonlinear_87,file="output/BCIs_sel_nfl_nonlinear_87.RData")
 BCIs_sel_nfl_nonlinear_87
 ```
 
-###### 1988
+##### 1988
 
 Only for non-linear terms
 
@@ -2050,7 +1597,7 @@ save(BCIs_sel_nfl_nonlinear_88,file="output/BCIs_sel_nfl_nonlinear_88.RData")
 BCIs_sel_nfl_nonlinear_88
 ```
 
-###### 1989
+##### 1989
 
 Only for non-linear terms
 
@@ -2117,11 +1664,293 @@ save(BCIs_sel_nfl_nonlinear_89,file="output/BCIs_sel_nfl_nonlinear_89.RData")
 BCIs_sel_nfl_nonlinear_89
 ```
 
-## SI: ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
+## Figure 2: Effects on relative iftness
 
-### Global models
+```{r}
+coefs_sel_nfl_linear<-rbind(
+  tidy(sel_nfl_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
+  tidy(sel_nfl_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
+  tidy(sel_nfl_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=ifelse(p.value>0.05,0,1),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=term,
+         type=as.factor("linear"))%>%
+  mutate(signif=factor(ifelse(row_number()==3,1,signif)))
+# Change signif for skewness cause it is signif according to BCA intervals
+coefs_sel_nfl_nonlinear<-rbind(
+  tidy(sel_nfl_nonlinear_87)[7:10,]%>%mutate(year=as.factor("1987")),
+  tidy(sel_nfl_nonlinear_88)[7:10,]%>%mutate(year=as.factor("1988")),
+  tidy(sel_nfl_nonlinear_89)[7:10,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
+         type=as.factor("nonlinear"))
+```
 
-#### Linear effects
+```{r}
+prediction_sel_nfl_linear<-rbind(rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="sel_nfl",type="linear")%>%
+  left_join(coefs_sel_nfl_linear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+
+prediction_sel_nfl_nonlinear<-rbind(rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="sel_nfl",type="nonlinear")%>%
+  left_join(coefs_sel_nfl_nonlinear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+prediction_sel_nfl<-rbind(prediction_sel_nfl_linear,
+                                 prediction_sel_nfl_nonlinear)%>%
+  mutate(predictor=factor(predictor,
+                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
+```
+
+```{r}
+predictor.labs<-c("Mean","Variance","Skewness","Kurtosis")
+names(predictor.labs)<-c("avFD_std","var_std","skew_std","kurt_std")
+```
+
+```{r}
+# fig4<-ggplot()+
+#   facet_grid2(c("predictor","year"), 
+#               labeller=labeller(predictor=predictor.labs), 
+#               scales = "free", independent = "all")+
+#   geom_ribbon(data=prediction_sel_nfl%>%
+#                 filter(type=="linear"), # Showing only linear effects
+#               # cause none of the non-linear are significant
+#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+#               alpha=0.3,fill="#CC0000")+
+#   geom_line(data=prediction_sel_nfl%>%
+#               filter(type=="linear"),
+#             aes(x=x,y=predicted,linetype=signif),
+#             linewidth=1,color="#CC0000")+
+#   geom_point(data=data_ids%>%
+#                dplyr::select(year,fitness_rel,
+#                       avFD_std,var_std,skew_std,kurt_std)%>%
+#                pivot_longer(cols=avFD_std:kurt_std,
+#                             names_to="predictor",values_to="value_predictor")%>%
+#                mutate(predictor=factor(predictor,
+#                                        levels=c("avFD_std","var_std",
+#                                                 "skew_std","kurt_std"))),
+#              aes(x=value_predictor,y=fitness_rel),
+#              size=2,alpha=0.3)+
+#   scale_linetype_manual(values=c("dashed", "solid"))+
+#   ylab("Relative fitness")+
+#   xlab("Value of the moment")+
+#   # geom_text(data=prediction_seed_escpred%>%
+#   #             select(year,predictor,print,type)%>%
+#   #             distinct()%>%
+#   #             pivot_wider(names_from=type,values_from=print)%>%
+#   #             mutate(print=paste("L = ",linear,"\n","NL =", nonlinear)),
+#   #           aes(x=Inf,y=Inf,label=print),
+#   #            hjust=1.05, vjust=1.2,family="serif")+
+#   my_theme()
+# fig4
+# ggsave(file="output/figures/fig4.tiff", plot=fig4, width=10, height=10)
+```
+
+```{r}
+fig2<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="avFD_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="avFD_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="var_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="var_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="skew_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="skew_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="kurt_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="kurt_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob("Relative fitness",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+)
+ggsave(file="output/figures/fig2.tiff", plot=fig2, width=10, height=10)
+```
+
+## Appendix 11: Global models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
+
+### Linear effects
 
 Including only linear effects and interactions with year.
 
@@ -2140,7 +1969,7 @@ check_collinearity(lm(fitness~avFD+var+skew+kurt+n_fl_log,
                        !is.na(skew_std)&!is.na(kurt_std))))
 ```
 
-##### BCA intervals
+#### BCA intervals
 
 ```{r eval=FALSE, include=FALSE}
 # avFD
@@ -2305,7 +2134,7 @@ save(BCIs_abs_nfl_linear,file="output/BCIs_abs_nfl_linear.RData")
 BCIs_abs_nfl_linear
 ```
 
-#### Non-linear effects
+### Non-linear effects
 
 ```{r}
 abs_nfl_nonlinear<-lm(fitness~avFD+var+skew+kurt+
@@ -2323,7 +2152,7 @@ tab_model(abs_nfl_nonlinear,
 Anova(abs_nfl_nonlinear)
 ```
 
-##### BCA intervals
+#### BCA intervals
 
 Only for non-linear terms
 
@@ -2474,9 +2303,9 @@ save(BCIs_abs_nfl_nonlinear,file="output/BCIs_abs_nfl_nonlinear.RData")
 BCIs_abs_nfl_nonlinear
 ```
 
-### Yearly models
+## Appendix 12: Yearly models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
 
-#### Linear effects
+### Linear effects
 
 ```{r}
 abs_nfl_linear_87<-lm(fitness~avFD+var+skew+kurt+
@@ -2500,10 +2329,9 @@ tab_model(abs_nfl_linear_87,abs_nfl_linear_88,abs_nfl_linear_89,
           title="Absolute fitness and traits, linear effects")
 ```
 
+#### BCA intervals
 
-##### BCA intervals
-
-###### 1987
+##### 1987
 
 ```{r eval=FALSE, include=FALSE}
 # avFD
@@ -2568,7 +2396,7 @@ save(BCIs_abs_nfl_linear_87,file="output/BCIs_abs_nfl_linear_87.RData")
 BCIs_abs_nfl_linear_87
 ```
 
-###### 1988
+##### 1988
 
 ```{r eval=FALSE, include=FALSE}
 # avFD
@@ -2633,7 +2461,7 @@ save(BCIs_abs_nfl_linear_88,file="output/BCIs_abs_nfl_linear_88.RData")
 BCIs_abs_nfl_linear_88
 ```
 
-###### 1989
+##### 1989
 
 ```{r eval=FALSE, include=FALSE}
 # avFD
@@ -2698,7 +2526,7 @@ save(BCIs_abs_nfl_linear_89,file="output/BCIs_abs_nfl_linear_89.RData")
 BCIs_abs_nfl_linear_89
 ```
 
-#### Non-linear effects
+### Non-linear effects
 
 ```{r}
 abs_nfl_nonlinear_87<-lm(fitness~avFD+var+
@@ -2728,9 +2556,9 @@ tab_model(abs_nfl_nonlinear_87,abs_nfl_nonlinear_88,abs_nfl_nonlinear_89,
           title="Absolute fitness and traits, non-linear effects")
 ```
 
-##### BCA intervals
+#### BCA intervals
 
-###### 1987
+##### 1987
 
 Only for non-linear terms
 
@@ -2797,7 +2625,7 @@ save(BCIs_abs_nfl_nonlinear_87,file="output/BCIs_abs_nfl_nonlinear_87.RData")
 BCIs_abs_nfl_nonlinear_87
 ```
 
-###### 1988
+##### 1988
 
 Only for non-linear terms
 
@@ -2864,7 +2692,7 @@ save(BCIs_abs_nfl_nonlinear_88,file="output/BCIs_abs_nfl_nonlinear_88.RData")
 BCIs_abs_nfl_nonlinear_88
 ```
 
-###### 1989
+##### 1989
 
 Only for non-linear terms
 
@@ -2931,11 +2759,9 @@ save(BCIs_abs_nfl_nonlinear_89,file="output/BCIs_abs_nfl_nonlinear_89.RData")
 BCIs_abs_nfl_nonlinear_89
 ```
 
-## SI: PHENOTYPIC SELECTION without n_fl
+## Appendix 13: Global models without n_fl
 
-### Global models
-
-#### Linear effects
+### Linear effects
 
 Including only linear effects and interactions with year.
 
@@ -2954,7 +2780,7 @@ check_collinearity(lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std,
                        !is.na(skew_std)&!is.na(kurt_std))))
 ```
 
-##### BCA intervals
+#### BCA intervals
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -3088,7 +2914,7 @@ save(BCIs_sel_linear,file="output/BCIs_sel_linear.RData")
 BCIs_sel_linear
 ```
 
-#### Non-linear effects
+### Non-linear effects
 
 ```{r}
 sel_nonlinear<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
@@ -3105,7 +2931,7 @@ Anova(sel_nonlinear)
 plot(check_collinearity(sel_nonlinear))
 ```
 
-##### BCA intervals
+#### BCA intervals
 
 Only for non-linear terms
 
@@ -3245,9 +3071,9 @@ save(BCIs_sel_nonlinear,file="output/BCIs_sel_nonlinear.RData")
 BCIs_sel_nonlinear
 ```
 
-### Yearly models
+## Yearly models without n_fl (not used)
 
-#### Linear effects
+### Linear effects
 
 ```{r}
 sel_linear_87<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std,
@@ -3274,9 +3100,9 @@ Anova(sel_linear_88)
 Anova(sel_linear_89)
 ```
 
-##### BCA intervals
+#### BCA intervals
 
-###### 1987
+##### 1987
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -3329,7 +3155,7 @@ save(BCIs_sel_linear_87,file="output/BCIs_sel_linear_87.RData")
 BCIs_sel_linear_87
 ```
 
-###### 1988
+##### 1988
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -3382,7 +3208,7 @@ save(BCIs_sel_linear_88,file="output/BCIs_sel_linear_88.RData")
 BCIs_sel_linear_88
 ```
 
-###### 1989
+##### 1989
 
 ```{r eval=FALSE, include=FALSE}
 # avFD_std
@@ -3435,7 +3261,7 @@ save(BCIs_sel_linear_89,file="output/BCIs_sel_linear_89.RData")
 BCIs_sel_linear_89
 ```
 
-#### Non-linear effects
+### Non-linear effects
 
 ```{r}
 sel_nonlinear_87<-lm(fitness_rel~avFD_std+var_std+
@@ -3468,9 +3294,9 @@ Anova(sel_nonlinear_88)
 Anova(sel_nonlinear_89)
 ```
 
-##### BCA intervals
+#### BCA intervals
 
-###### 1987
+##### 1987
 
 Only for non-linear terms
 
@@ -3526,7 +3352,7 @@ save(BCIs_sel_nonlinear_87,file="output/BCIs_sel_nonlinear_87.RData")
 BCIs_sel_nonlinear_87
 ```
 
-###### 1988
+##### 1988
 
 Only for non-linear terms
 
@@ -3582,7 +3408,7 @@ save(BCIs_sel_nonlinear_88,file="output/BCIs_sel_nonlinear_88.RData")
 BCIs_sel_nonlinear_88
 ```
 
-###### 1989
+##### 1989
 
 Only for non-linear terms
 
@@ -3638,135 +3464,198 @@ save(BCIs_sel_nonlinear_89,file="output/BCIs_sel_nonlinear_89.RData")
 BCIs_sel_nonlinear_89
 ```
 
-# Figures
+# Q3: Effects of within-individual variation on fitness components
 
-With multivariate model predictions
-
-## Extract predictions from multivariate GLMs
-
-### Fruit set
-
-```{r}
-coefs_fr_set_linear<-rbind(
-  tidy(fr_set_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
-  tidy(fr_set_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
-  tidy(fr_set_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
-  )%>%
-  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
-         coef=format(round(estimate,3),nsmall=3),
-         star=ifelse(signif==1,"*","  "),
-         print=paste(coef,star),
-         predictor=term,
-         type=as.factor("linear"))
-coefs_fr_set_nonlinear<-rbind(
-  tidy(fr_set_nonlinear_87)[6:9,]%>%mutate(year=as.factor("1987")),
-  tidy(fr_set_nonlinear_88)[6:9,]%>%mutate(year=as.factor("1988")),
-  tidy(fr_set_nonlinear_89)[6:9,]%>%mutate(year=as.factor("1989"))
-  )%>%
-  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
-         coef=format(round(estimate,3),nsmall=3),
-         star=ifelse(signif==1,"*","  "),
-         print=paste(coef,star),
-         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
-         type=as.factor("nonlinear"))
-```
-
-
-```{r}
-prediction_fr_set_linear<-rbind(rbind(tibble(ggpredict(fr_set_linear_87,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_linear_88,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_linear_89,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="avFD_std"), # avFD_std
-                    rbind(tibble(ggpredict(fr_set_linear_87,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_linear_88,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_linear_89,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="var_std"), # var_std
-                    rbind(tibble(ggpredict(fr_set_linear_87,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_linear_88,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_linear_89,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="skew_std"), # skew_std
-                    rbind(tibble(ggpredict(fr_set_linear_87,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_linear_88,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_linear_89,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="kurt_std"))%>% # kurt_std
-  mutate(response="fr_set",type="linear")%>%
-  left_join(coefs_fr_set_linear%>%
-              dplyr::select(predictor,coef,year,signif,star,print,type))
-
-prediction_fr_set_nonlinear<-rbind(rbind(tibble(ggpredict(fr_set_nonlinear_87,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_nonlinear_88,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_nonlinear_89,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="avFD_std"), # avFD_std
-                    rbind(tibble(ggpredict(fr_set_nonlinear_87,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_nonlinear_88,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_nonlinear_89,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="var_std"), # var_std
-                    rbind(tibble(ggpredict(fr_set_nonlinear_87,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_nonlinear_88,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_nonlinear_89,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="skew_std"), # skew_std
-                    rbind(tibble(ggpredict(fr_set_nonlinear_87,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_set_nonlinear_88,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_set_nonlinear_89,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="kurt_std"))%>% # kurt_std
-  mutate(response="fr_set",type="nonlinear")%>%
-  left_join(coefs_fr_set_nonlinear%>%
-              dplyr::select(predictor,coef,year,signif,star,print,type))
-prediction_fr_set<-rbind(prediction_fr_set_linear,
-                                 prediction_fr_set_nonlinear)%>%
-  mutate(predictor=factor(predictor,
-                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
-```
+## Appendix 14: Global models fruit initiation, fruit maturation and proportion of seeds escaping predation
 
 ### Fruit initiation
+
+Using (within-year) standardized traits.
+
+#### Linear effects
+
+```{r}
+fr_init_linear<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~avFD_std+var_std+
+                      skew_std+kurt_std+year+ 
+                      # Include main effect of year here
+                      # but not in selection models!
+                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
+                    data_ids,family="binomial")
+tab_model(fr_init_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit initiation, linear effects"))
+Anova(fr_init_linear) # Use type II (now) or III?
+check_collinearity(glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~avFD_std+var_std+
+                         skew_std+kurt_std+year,
+                       data_ids,family="binomial"))
+```
+
+#### Non-linear effects
+
+```{r}
+fr_init_nonlinear<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std+year+ 
+                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
+                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
+                         I(avFD_std^2):year+I(var_std^2):year+
+                         I(skew_std^2):year+I(kurt_std^2):year,
+                       data_ids,family="binomial")
+tab_model(fr_init_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit initiation, non linear effects"))
+Anova(fr_init_nonlinear) # Use type II (now) or III?
+```
+
+### Fruit maturation
+
+Using (within-year) standardized traits.
+
+#### Linear effects
+
+```{r}
+fr_mat_linear<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~avFD_std+var_std+
+                      skew_std+kurt_std+year+ 
+                      # Include main effect of year here
+                      # but not in selection models!
+                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
+                    data_ids,family="binomial")
+tab_model(fr_mat_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit maturation, linear effects"))
+Anova(fr_mat_linear) # Use type II (now) or III?
+check_collinearity(glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~avFD_std+var_std+
+                         skew_std+kurt_std+year,
+                       data_ids,family="binomial"))
+```
+
+#### Non-linear effects
+
+```{r}
+fr_mat_nonlinear<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std+year+ 
+                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
+                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
+                         I(avFD_std^2):year+I(var_std^2):year+
+                         I(skew_std^2):year+I(kurt_std^2):year,
+                       data_ids,family="binomial")
+tab_model(fr_mat_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit maturation, non linear effects"))
+Anova(fr_mat_nonlinear) # Use type II (now) or III?
+```
+
+### Proportion of seeds escaping predation
+
+Using (within-year) standardized traits.
+
+#### Linear effects
+
+```{r}
+seed_escpred_linear<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                        pr_seeds=round(n_preyed_seed))~
+                          avFD_std+var_std+skew_std+kurt_std+year+ 
+                          avFD_std:year+var_std:year+
+                          skew_std:year+kurt_std:year,
+                        data_ids,family="binomial")
+tab_model(seed_escpred_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Seeds escaping predation, linear effects"))
+Anova(seed_escpred_linear)
+check_collinearity(glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                        pr_seeds=round(n_preyed_seed))~
+                          avFD_std+var_std+skew_std+kurt_std+year,
+                        data_ids,family="binomial"))
+```
+
+According to Anova, differences among years in the effects of avFD and skew.
+
+#### Non-linear effects
+
+```{r}
+seed_escpred_nonlinear<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                        pr_seeds=round(n_preyed_seed))~
+                          avFD_std+var_std+skew_std+kurt_std+year+ 
+                          avFD_std:year+var_std:year+
+                          skew_std:year+kurt_std:year+
+                          I(avFD_std^2)+I(var_std^2)+
+                          I(skew_std^2)+I(kurt_std^2)+
+                          I(avFD_std^2):year+I(var_std^2):year+
+                          I(skew_std^2):year+I(kurt_std^2):year,
+                        data_ids,family="binomial")
+tab_model(seed_escpred_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Seeds escaping predation, non linear effects"))
+Anova(seed_escpred_nonlinear) # Use type II (now) or III?
+```
+
+Significant non-linear effects according to Anova: I(var_std^2), I(skew_std^2), year:I(avFD_std^2), year:I(skew_std^2)
+
+## Appendix 15: Yearly models fruit initiation
+
+### Linear effects
+
+```{r}
+fr_init_linear_87<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                       subset(data_ids,year==1987),family="binomial")
+fr_init_linear_88<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1988),family="binomial")
+fr_init_linear_89<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_init_linear_87,fr_init_linear_88,fr_init_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit initiation, linear effects")
+check_collinearity(fr_init_linear_87)
+check_collinearity(fr_init_linear_88)
+check_collinearity(fr_init_linear_89)
+Anova(fr_init_linear_87)
+Anova(fr_init_linear_88)
+Anova(fr_init_linear_89) 
+```
+
+### Non-linear effects
+
+```{r}
+fr_init_nonlinear_87<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                          subset(data_ids,year==1987),family="binomial")
+fr_init_nonlinear_88<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1988),family="binomial")
+fr_init_nonlinear_89<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_init_nonlinear_87,fr_init_nonlinear_88,fr_init_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit initiation, nonlinear effects")
+Anova(fr_init_nonlinear_87)
+Anova(fr_init_nonlinear_88)
+Anova(fr_init_nonlinear_89) 
+```
+
+## Appendix 16: Effects on fruit initiation
 
 ```{r}
 coefs_fr_init_linear<-rbind(
@@ -3887,129 +3776,218 @@ prediction_fr_init<-rbind(prediction_fr_init_linear,
                           levels=c("avFD_std","var_std","skew_std","kurt_std")))
 ```
 
-### Fruit maturation
+```{r}
+# Appendix16<-ggplot()+
+#   geom_point(data=data_ids%>%
+#                dplyr::select(year,fr_init,avFD_std,var_std,skew_std,kurt_std)%>%
+#                pivot_longer(cols=avFD_std:kurt_std,
+#                             names_to="predictor",values_to="value_predictor")%>%
+#                mutate(predictor=factor(predictor,
+#                                        levels=c("avFD_std","var_std",
+#                                                 "skew_std","kurt_std"))),
+#              aes(x=value_predictor,y=fr_init),
+#              size=2,alpha=0.3)+
+#   facet_grid2(c("predictor","year"), 
+#               labeller=labeller(predictor=predictor.labs), 
+#               scales = "free", independent = "all")+
+#   geom_ribbon(data=prediction_fr_init,
+#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+#               alpha=0.3)+
+#   geom_line(data=prediction_fr_init,
+#             aes(x=x,y=predicted,linetype=signif,color=type),
+#             linewidth=1)+
+#   scale_linetype_manual(values=c("dotted", "solid"))+
+#   ylab("Fruit initiation (proportion of flowers that initiated fruits)")+
+#   xlab("Value of the moment")+
+#   my_theme()
+# Appendix16
+# ggsave(file="output/figures/Appendix16.tiff",
+#        plot=Appendix16, width=10, height=10)
+```
 
 ```{r}
-coefs_fr_mat_linear<-rbind(
-  tidy(fr_mat_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
-  tidy(fr_mat_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
-  tidy(fr_mat_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
-  )%>%
-  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
-         coef=format(round(estimate,3),nsmall=3),
-         star=ifelse(signif==1,"*","  "),
-         print=paste(coef,star),
-         predictor=term,
-         type=as.factor("linear"))
-coefs_fr_mat_nonlinear<-rbind(
-  tidy(fr_mat_nonlinear_87)[6:9,]%>%mutate(year=as.factor("1987")),
-  tidy(fr_mat_nonlinear_88)[6:9,]%>%mutate(year=as.factor("1988")),
-  tidy(fr_mat_nonlinear_89)[6:9,]%>%mutate(year=as.factor("1989"))
-  )%>%
-  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
-         coef=format(round(estimate,3),nsmall=3),
-         star=ifelse(signif==1,"*","  "),
-         print=paste(coef,star),
-         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
-         type=as.factor("nonlinear"))
+Appendix16<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="kurt_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="kurt_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob(
+    "Fruit initiation (proportion of flowers that initiated fruits)",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+  )
+ggsave(file="output/figures/Appendix16.tiff",plot=Appendix16,width=10,height=10)
 ```
 
 
-```{r}
-prediction_fr_mat_linear<-rbind(rbind(tibble(ggpredict(fr_mat_linear_87,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_linear_88,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_linear_89,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="avFD_std"), # avFD_std
-                    rbind(tibble(ggpredict(fr_mat_linear_87,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_linear_88,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_linear_89,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="var_std"), # var_std
-                    rbind(tibble(ggpredict(fr_mat_linear_87,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_linear_88,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_linear_89,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="skew_std"), # skew_std
-                    rbind(tibble(ggpredict(fr_mat_linear_87,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_linear_88,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_linear_89,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="kurt_std"))%>% # kurt_std
-  mutate(response="fr_mat",type="linear")%>%
-  left_join(coefs_fr_mat_linear%>%
-              dplyr::select(predictor,coef,year,signif,star,print,type))
+## Appendix 17: Yearly models proportion of seeds escaping predation
 
-prediction_fr_mat_nonlinear<-rbind(rbind(tibble(ggpredict(fr_mat_nonlinear_87,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_nonlinear_88,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_nonlinear_89,
-                                           terms=c("avFD_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="avFD_std"), # avFD_std
-                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_nonlinear_88,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_nonlinear_89,
-                                           terms=c("var_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="var_std"), # var_std
-                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_nonlinear_88,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_nonlinear_89,
-                                           terms=c("skew_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="skew_std"), # skew_std
-                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1987)),
-                          tibble(ggpredict(fr_mat_nonlinear_88,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1988)),
-                          tibble(ggpredict(fr_mat_nonlinear_89,
-                                           terms=c("kurt_std [all]")))%>%
-                            mutate(year=as.factor(1989)))%>%
-                      mutate(predictor="kurt_std"))%>% # kurt_std
-  mutate(response="fr_mat",type="nonlinear")%>%
-  left_join(coefs_fr_mat_nonlinear%>%
-              dplyr::select(predictor,coef,year,signif,star,print,type))
-prediction_fr_mat<-rbind(prediction_fr_mat_linear,
-                                 prediction_fr_mat_nonlinear)%>%
-  mutate(predictor=factor(predictor,
-                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
+### Linear effects
+
+```{r}
+seed_escpred_linear_87<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                                  pr_seeds=round(n_preyed_seed))~
+                              avFD_std+var_std+skew_std+kurt_std,
+                            subset(data_ids,year==1987&n_seed>0),
+                            family="binomial")
+data_seed_esc_pred_88<-subset(data_ids,year==1988&n_seed>0&
+                                !is.na(avFD_std)&!is.na(var_std)&
+                                !is.na(skew_std)&!is.na(kurt_std))
+seed_escpred_linear_88<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                                  pr_seeds=round(n_preyed_seed))~
+                              avFD_std+var_std+skew_std+kurt_std,
+                            data_seed_esc_pred_88,
+                            family="binomial")
+seed_escpred_linear_89<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                                  pr_seeds=round(n_preyed_seed))~
+                              avFD_std+var_std+skew_std+kurt_std,
+                            subset(data_ids,year==1989&n_seed>0),
+                            family="binomial")
+tab_model(seed_escpred_linear_87,seed_escpred_linear_88,seed_escpred_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Seeds escaping predation, linear effects")
+check_collinearity(seed_escpred_linear_87)
+check_collinearity(seed_escpred_linear_88)
+check_collinearity(seed_escpred_linear_89)
+Anova(seed_escpred_linear_87)
+Anova(seed_escpred_linear_88)
+Anova(seed_escpred_linear_89)
 ```
 
-### Seeds escaping predation
+#### Non-linear effects
+
+```{r}
+seed_escpred_nonlinear_87<-glm(cbind(npr_seeds=round(n_seed)-
+                                       round(n_preyed_seed),
+                                     pr_seeds=round(n_preyed_seed))~
+                                 avFD_std+var_std+skew_std+kurt_std+
+                                 I(avFD_std^2)+I(var_std^2)+
+                                 I(skew_std^2)+I(kurt_std^2),
+                               subset(data_ids,year==1987&n_seed>0),
+                               family="binomial")
+seed_escpred_nonlinear_88<-glm(cbind(npr_seeds=round(n_seed)-
+                                       round(n_preyed_seed),
+                                     pr_seeds=round(n_preyed_seed))~
+                                 avFD_std+var_std+skew_std+kurt_std+
+                                 I(avFD_std^2)+I(var_std^2)+
+                                 I(skew_std^2)+I(kurt_std^2),
+                               subset(data_ids,year==1988&n_seed>0),
+                               family="binomial")
+seed_escpred_nonlinear_89<-glm(cbind(npr_seeds=round(n_seed)-
+                                       round(n_preyed_seed),
+                                     pr_seeds=round(n_preyed_seed))~
+                                 avFD_std+var_std+skew_std+kurt_std+
+                                 I(avFD_std^2)+I(var_std^2)+
+                                 I(skew_std^2)+I(kurt_std^2),
+                               subset(data_ids,year==1989&n_seed>0),
+                               family="binomial")
+# nobs(seed_escpred_nonlinear_89)/
+# dim(model.matrix(seed_escpred_nonlinear_89))[2] = 7.2
+# Careful! Only case when this ratio is <10
+tab_model(seed_escpred_nonlinear_87,seed_escpred_nonlinear_88,
+          seed_escpred_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Seeds escaping predation, nonlinear effects")
+Anova(seed_escpred_nonlinear_87)
+Anova(seed_escpred_nonlinear_88)
+Anova(seed_escpred_nonlinear_89) 
+```
+
+## Appendix 18: Effects on proportion of seeds escaping predation
 
 ```{r}
 coefs_seed_escpred_linear<-rbind(
@@ -4130,26 +4108,221 @@ prediction_seed_escpred<-rbind(prediction_seed_escpred_linear,
                           levels=c("avFD_std","var_std","skew_std","kurt_std")))
 ```
 
-### Selection with n_fl
+```{r}
+# Appendix18<-ggplot()+
+#   geom_point(data=data_ids%>%
+#                filter(n_seed>0)%>%
+#                dplyr::select(year,prop_seed_preyed,
+#                       avFD_std,var_std,skew_std,kurt_std)%>%
+#                pivot_longer(cols=avFD_std:kurt_std,
+#                             names_to="predictor",values_to="value_predictor")%>%
+#                mutate(predictor=factor(predictor,
+#                                        levels=c("avFD_std","var_std",
+#                                                 "skew_std","kurt_std")))%>%
+#                filter(!is.na(prop_seed_preyed)),
+#              aes(x=value_predictor,y=1-prop_seed_preyed),
+#              size=2,alpha=0.3)+
+#   facet_grid2(c("predictor","year"), 
+#               labeller=labeller(predictor=predictor.labs), 
+#               scales = "free", independent = "all")+
+#   geom_ribbon(data=prediction_seed_escpred,
+#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+#               alpha=0.3)+
+#   geom_line(data=prediction_seed_escpred,
+#             aes(x=x,y=predicted,linetype=signif,color=type),
+#             linewidth=1)+
+#   scale_linetype_manual(values=c("dotted", "solid"))+
+#   ylab("Proportion of seeds escaping predation")+
+#   xlab("Value of the moment")+
+#   my_theme()
+# Appendix18
+# ggsave(file="output/figures/Appendix18.tiff", plot=Appendix18, width=10, height=10)
+```
 
 ```{r}
-coefs_sel_nfl_linear<-rbind(
-  tidy(sel_nfl_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
-  tidy(sel_nfl_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
-  tidy(sel_nfl_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
+Appendix18<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="kurt_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="kurt_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob(
+    "Proportion of seeds escaping predation",
+    gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+)
+ggsave(file="output/figures/Appendix18.tiff",plot=Appendix18,width=10,height=10)
+```
+
+
+## Appendix 19: Yearly models fruit maturation
+
+### Linear effects
+
+```{r}
+fr_mat_linear_87<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                       subset(data_ids,year==1987),family="binomial")
+fr_mat_linear_88<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1988),family="binomial")
+fr_mat_linear_89<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_mat_linear_87,fr_mat_linear_88,fr_mat_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit maturation, linear effects")
+check_collinearity(fr_mat_linear_87)
+check_collinearity(fr_mat_linear_88)
+check_collinearity(fr_mat_linear_89)
+Anova(fr_mat_linear_87)
+Anova(fr_mat_linear_88)
+Anova(fr_mat_linear_89) 
+```
+
+### Non-linear effects
+
+```{r}
+fr_mat_nonlinear_87<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                          subset(data_ids,year==1987),family="binomial")
+fr_mat_nonlinear_88<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1988),family="binomial")
+fr_mat_nonlinear_89<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_mat_nonlinear_87,fr_mat_nonlinear_88,fr_mat_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit maturation, nonlinear effects")
+Anova(fr_mat_nonlinear_87)
+Anova(fr_mat_nonlinear_88)
+Anova(fr_mat_nonlinear_89) 
+```
+
+## Appendix 20: Effects on fruit maturation
+
+```{r}
+coefs_fr_mat_linear<-rbind(
+  tidy(fr_mat_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
+  tidy(fr_mat_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
+  tidy(fr_mat_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
   )%>%
-  mutate(signif=ifelse(p.value>0.05,0,1),
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
          coef=format(round(estimate,3),nsmall=3),
          star=ifelse(signif==1,"*","  "),
          print=paste(coef,star),
          predictor=term,
-         type=as.factor("linear"))%>%
-  mutate(signif=factor(ifelse(row_number()==3,1,signif)))
-# Change signif for skewness cause it is signif according to BCA intervals
-coefs_sel_nfl_nonlinear<-rbind(
-  tidy(sel_nfl_nonlinear_87)[7:10,]%>%mutate(year=as.factor("1987")),
-  tidy(sel_nfl_nonlinear_88)[7:10,]%>%mutate(year=as.factor("1988")),
-  tidy(sel_nfl_nonlinear_89)[7:10,]%>%mutate(year=as.factor("1989"))
+         type=as.factor("linear"))
+coefs_fr_mat_nonlinear<-rbind(
+  tidy(fr_mat_nonlinear_87)[6:9,]%>%mutate(year=as.factor("1987")),
+  tidy(fr_mat_nonlinear_88)[6:9,]%>%mutate(year=as.factor("1988")),
+  tidy(fr_mat_nonlinear_89)[6:9,]%>%mutate(year=as.factor("1989"))
   )%>%
   mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
          coef=format(round(estimate,3),nsmall=3),
@@ -4160,291 +4333,239 @@ coefs_sel_nfl_nonlinear<-rbind(
 ```
 
 ```{r}
-prediction_sel_nfl_linear<-rbind(rbind(tibble(ggpredict(sel_nfl_linear_87,
+prediction_fr_mat_linear<-rbind(rbind(tibble(ggpredict(fr_mat_linear_87,
                                            terms=c("avFD_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_linear_88,
+                          tibble(ggpredict(fr_mat_linear_88,
                                            terms=c("avFD_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_linear_89,
+                          tibble(ggpredict(fr_mat_linear_89,
                                            terms=c("avFD_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="avFD_std"), # avFD_std
-                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                    rbind(tibble(ggpredict(fr_mat_linear_87,
                                            terms=c("var_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_linear_88,
+                          tibble(ggpredict(fr_mat_linear_88,
                                            terms=c("var_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_linear_89,
+                          tibble(ggpredict(fr_mat_linear_89,
                                            terms=c("var_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="var_std"), # var_std
-                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                    rbind(tibble(ggpredict(fr_mat_linear_87,
                                            terms=c("skew_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_linear_88,
+                          tibble(ggpredict(fr_mat_linear_88,
                                            terms=c("skew_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_linear_89,
+                          tibble(ggpredict(fr_mat_linear_89,
                                            terms=c("skew_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="skew_std"), # skew_std
-                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                    rbind(tibble(ggpredict(fr_mat_linear_87,
                                            terms=c("kurt_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_linear_88,
+                          tibble(ggpredict(fr_mat_linear_88,
                                            terms=c("kurt_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_linear_89,
+                          tibble(ggpredict(fr_mat_linear_89,
                                            terms=c("kurt_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="kurt_std"))%>% # kurt_std
-  mutate(response="sel_nfl",type="linear")%>%
-  left_join(coefs_sel_nfl_linear%>%
+  mutate(response="fr_mat",type="linear")%>%
+  left_join(coefs_fr_mat_linear%>%
               dplyr::select(predictor,coef,year,signif,star,print,type))
 
-prediction_sel_nfl_nonlinear<-rbind(rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+prediction_fr_mat_nonlinear<-rbind(rbind(tibble(ggpredict(fr_mat_nonlinear_87,
                                            terms=c("avFD_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                          tibble(ggpredict(fr_mat_nonlinear_88,
                                            terms=c("avFD_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                          tibble(ggpredict(fr_mat_nonlinear_89,
                                            terms=c("avFD_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="avFD_std"), # avFD_std
-                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
                                            terms=c("var_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                          tibble(ggpredict(fr_mat_nonlinear_88,
                                            terms=c("var_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                          tibble(ggpredict(fr_mat_nonlinear_89,
                                            terms=c("var_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="var_std"), # var_std
-                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
                                            terms=c("skew_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                          tibble(ggpredict(fr_mat_nonlinear_88,
                                            terms=c("skew_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                          tibble(ggpredict(fr_mat_nonlinear_89,
                                            terms=c("skew_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="skew_std"), # skew_std
-                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
                                            terms=c("kurt_std [all]")))%>%
                             mutate(year=as.factor(1987)),
-                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                          tibble(ggpredict(fr_mat_nonlinear_88,
                                            terms=c("kurt_std [all]")))%>%
                             mutate(year=as.factor(1988)),
-                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                          tibble(ggpredict(fr_mat_nonlinear_89,
                                            terms=c("kurt_std [all]")))%>%
                             mutate(year=as.factor(1989)))%>%
                       mutate(predictor="kurt_std"))%>% # kurt_std
-  mutate(response="sel_nfl",type="nonlinear")%>%
-  left_join(coefs_sel_nfl_nonlinear%>%
+  mutate(response="fr_mat",type="nonlinear")%>%
+  left_join(coefs_fr_mat_nonlinear%>%
               dplyr::select(predictor,coef,year,signif,star,print,type))
-prediction_sel_nfl<-rbind(prediction_sel_nfl_linear,
-                                 prediction_sel_nfl_nonlinear)%>%
+prediction_fr_mat<-rbind(prediction_fr_mat_linear,
+                                 prediction_fr_mat_nonlinear)%>%
   mutate(predictor=factor(predictor,
                           levels=c("avFD_std","var_std","skew_std","kurt_std")))
 ```
 
-## Figure 2
-
-Figure based on predictions of yearly models.
-
 ```{r}
-predictor.labs<-c("Mean","Variance","Skewness","Kurtosis")
-names(predictor.labs)<-c("avFD_std","var_std","skew_std","kurt_std")
-fig2<-ggplot()+
-  geom_point(data=data_ids%>%
-               dplyr::select(year,fr_set,avFD_std,var_std,skew_std,kurt_std)%>%
-               pivot_longer(cols=avFD_std:kurt_std,
-                            names_to="predictor",values_to="value_predictor")%>%
-               mutate(predictor=factor(predictor,
-                                       levels=c("avFD_std","var_std",
-                                                "skew_std","kurt_std"))),
-             aes(x=value_predictor,y=fr_set),
-             size=2,alpha=0.3)+
-  facet_grid2(c("predictor","year"), 
-              labeller=labeller(predictor=predictor.labs), 
-              scales = "free", independent = "all")+
-  geom_ribbon(data=prediction_fr_set,
-              aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-              alpha=0.3)+
-  geom_line(data=prediction_fr_set,
-            aes(x=x,y=predicted,linetype=signif,color=type),
-            linewidth=1)+
-  scale_linetype_manual(values=c("dotted", "solid"))+
-  ylab("Proportion of flowers that developed to fruits")+
-  xlab("Value of the moment")+
-  # geom_text(data=prediction_fr_set%>%
-  #             select(year,predictor,print,type)%>%
-  #             distinct()%>%
-  #             pivot_wider(names_from=type,values_from=print)%>%
-  #             mutate(print=paste("L = ",linear,"\n","NL =", nonlinear)),
-  #           aes(x=Inf,y=Inf,label=print),
-  #            hjust=1.05, vjust=1.2,family="serif")+
-  my_theme()
-fig2
-ggsave(file="output/figures/fig2.tiff", plot=fig2, width=10, height=10)
-```
-
-## Figures fruit initiation and maturation
-
-```{r}
-fig_fr_init<-ggplot()+
-  geom_point(data=data_ids%>%
-               dplyr::select(year,fr_init,avFD_std,var_std,skew_std,kurt_std)%>%
-               pivot_longer(cols=avFD_std:kurt_std,
-                            names_to="predictor",values_to="value_predictor")%>%
-               mutate(predictor=factor(predictor,
-                                       levels=c("avFD_std","var_std",
-                                                "skew_std","kurt_std"))),
-             aes(x=value_predictor,y=fr_init),
-             size=2,alpha=0.3)+
-  facet_grid2(c("predictor","year"), 
-              labeller=labeller(predictor=predictor.labs), 
-              scales = "free", independent = "all")+
-  geom_ribbon(data=prediction_fr_init,
-              aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-              alpha=0.3)+
-  geom_line(data=prediction_fr_init,
-            aes(x=x,y=predicted,linetype=signif,color=type),
-            linewidth=1)+
-  scale_linetype_manual(values=c("dotted", "solid"))+
-  ylab("Fruit initiation (proportion of flowers that initiated fruits)")+
-  xlab("Value of the moment")+
-  my_theme()
-fig_fr_init
-ggsave(file="output/figures/fig_fr_init.tiff",
-       plot=fig_fr_init, width=10, height=10)
+# Appendix20<-ggplot()+
+#   geom_point(data=data_ids%>%
+#                dplyr::select(year,fr_mat,avFD_std,var_std,skew_std,kurt_std)%>%
+#                pivot_longer(cols=avFD_std:kurt_std,
+#                             names_to="predictor",values_to="value_predictor")%>%
+#                mutate(predictor=factor(predictor,
+#                                        levels=c("avFD_std","var_std",
+#                                                 "skew_std","kurt_std"))),
+#              aes(x=value_predictor,y=fr_mat),
+#              size=2,alpha=0.3)+
+#   facet_grid2(c("predictor","year"), 
+#               labeller=labeller(predictor=predictor.labs), 
+#               scales = "free", independent = "all")+
+#   geom_ribbon(data=prediction_fr_mat,
+#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+#               alpha=0.3)+
+#   geom_line(data=prediction_fr_mat,
+#             aes(x=x,y=predicted,linetype=signif,color=type),
+#             linewidth=1)+
+#   scale_linetype_manual(values=c("dotted", "solid"))+
+#   ylab("Fruit maturation (proportion of initiated fruits that developed to mature fruits)")+
+#   xlab("Value of the moment")+
+#   my_theme()
+# Appendix20
+# ggsave(file="output/figures/Appendix20.tiff",
+#        plot=Appendix20, width=10, height=10)
 ```
 
 ```{r}
-fig_fr_mat<-ggplot()+
-  geom_point(data=data_ids%>%
-               dplyr::select(year,fr_mat,avFD_std,var_std,skew_std,kurt_std)%>%
-               pivot_longer(cols=avFD_std:kurt_std,
-                            names_to="predictor",values_to="value_predictor")%>%
-               mutate(predictor=factor(predictor,
-                                       levels=c("avFD_std","var_std",
-                                                "skew_std","kurt_std"))),
-             aes(x=value_predictor,y=fr_mat),
-             size=2,alpha=0.3)+
-  facet_grid2(c("predictor","year"), 
-              labeller=labeller(predictor=predictor.labs), 
-              scales = "free", independent = "all")+
-  geom_ribbon(data=prediction_fr_mat,
-              aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-              alpha=0.3)+
-  geom_line(data=prediction_fr_mat,
-            aes(x=x,y=predicted,linetype=signif,color=type),
-            linewidth=1)+
-  scale_linetype_manual(values=c("dotted", "solid"))+
-  ylab("Fruit maturation (proportion of initiated fruits that developed to mature fruits)")+
-  xlab("Value of the moment")+
-  my_theme()
-fig_fr_mat
-ggsave(file="output/figures/fig_fr_mat.tiff",
-       plot=fig_fr_mat, width=10, height=10)
+Appendix20<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="kurt_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="kurt_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob(
+    "Fruit maturation (proportion of initiated fruits that developed to mature fruits)",
+    gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+)
+ggsave(file="output/figures/Appendix20.tiff",plot=Appendix20,width=10,height=10)
 ```
 
-## Figure 3
 
-Figure based on predictions of yearly models
-
-```{r}
-fig3<-ggplot()+
-  geom_point(data=data_ids%>%
-               filter(n_seed>0)%>%
-               dplyr::select(year,prop_seed_preyed,
-                      avFD_std,var_std,skew_std,kurt_std)%>%
-               pivot_longer(cols=avFD_std:kurt_std,
-                            names_to="predictor",values_to="value_predictor")%>%
-               mutate(predictor=factor(predictor,
-                                       levels=c("avFD_std","var_std",
-                                                "skew_std","kurt_std")))%>%
-               filter(!is.na(prop_seed_preyed)),
-             aes(x=value_predictor,y=1-prop_seed_preyed),
-             size=2,alpha=0.3)+
-  facet_grid2(c("predictor","year"), 
-              labeller=labeller(predictor=predictor.labs), 
-              scales = "free", independent = "all")+
-  geom_ribbon(data=prediction_seed_escpred,
-              aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-              alpha=0.3)+
-  geom_line(data=prediction_seed_escpred,
-            aes(x=x,y=predicted,linetype=signif,color=type),
-            linewidth=1)+
-  scale_linetype_manual(values=c("dotted", "solid"))+
-  ylab("Proportion of seeds escaping predation")+
-  xlab("Value of the moment")+
-  # geom_text(data=prediction_seed_escpred%>%
-  #             select(year,predictor,print,type)%>%
-  #             distinct()%>%
-  #             pivot_wider(names_from=type,values_from=print)%>%
-  #             mutate(print=paste("L = ",linear,"\n","NL =", nonlinear)),
-  #           aes(x=Inf,y=Inf,label=print),
-  #            hjust=1.05, vjust=1.2,family="serif")+
-  my_theme()
-fig3
-ggsave(file="output/figures/fig3.tiff", plot=fig3, width=10, height=10)
-```
-
-## Figure 4
-
-Figure based on predictions of yearly models
+## Figure 3: Effects on fruit initiation, fruit maturation and proportion of seeds escaping predation
 
 ```{r}
-fig4<-ggplot()+
-  facet_grid2(c("predictor","year"), 
-              labeller=labeller(predictor=predictor.labs), 
-              scales = "free", independent = "all")+
-  geom_ribbon(data=prediction_sel_nfl%>%
-                filter(type=="linear"), # Showing only linear effects
-              # cause none of the non-linear are significant
-              aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
-              alpha=0.3,fill="#CC0000")+
-  geom_line(data=prediction_sel_nfl%>%
-              filter(type=="linear"),
-            aes(x=x,y=predicted,linetype=signif),
-            linewidth=1,color="#CC0000")+
-  geom_point(data=data_ids%>%
-               dplyr::select(year,fitness_rel,
-                      avFD_std,var_std,skew_std,kurt_std)%>%
-               pivot_longer(cols=avFD_std:kurt_std,
-                            names_to="predictor",values_to="value_predictor")%>%
-               mutate(predictor=factor(predictor,
-                                       levels=c("avFD_std","var_std",
-                                                "skew_std","kurt_std"))),
-             aes(x=value_predictor,y=fitness_rel),
-             size=2,alpha=0.3)+
-  scale_linetype_manual(values=c("dashed", "solid"))+
-  ylab("Relative fitness")+
-  xlab("Value of the moment")+
-  # geom_text(data=prediction_seed_escpred%>%
-  #             select(year,predictor,print,type)%>%
-  #             distinct()%>%
-  #             pivot_wider(names_from=type,values_from=print)%>%
-  #             mutate(print=paste("L = ",linear,"\n","NL =", nonlinear)),
-  #           aes(x=Inf,y=Inf,label=print),
-  #            hjust=1.05, vjust=1.2,family="serif")+
-  my_theme()
-fig4
-ggsave(file="output/figures/fig4.tiff", plot=fig4, width=10, height=10)
-```
-
-# New figure
-
-I need to reorder and rename the figures!
-
-```{r}
-data_figure<-rbind(prediction_fr_init,
+data_figure3<-rbind(prediction_fr_init,
       prediction_fr_mat,
       prediction_seed_escpred)%>%
   # Remove non-significant effects
@@ -4460,9 +4581,47 @@ data_figure<-rbind(prediction_fr_init,
              type=="linear"))
 ```
 
+```{r}
+# fig3<-ggplot()+
+#   # geom_point(data=data_ids%>%
+#   #              dplyr::select(year,fr_init,avFD_std,var_std,skew_std,kurt_std)%>%
+#   #              pivot_longer(cols=avFD_std:kurt_std,
+#   #                           names_to="predictor",values_to="value_predictor")%>%
+#   #              mutate(predictor=factor(predictor,
+#   #                                      levels=c("avFD_std","var_std",
+#   #                                               "skew_std","kurt_std"))),
+#   #            aes(x=value_predictor,y=fr_init),
+#   #            size=2,alpha=0.3)+
+#   facet_grid2(c("predictor","year"), 
+#               labeller=labeller(predictor=predictor.labs), 
+#               scales = "free", independent = "x")+
+#   geom_ribbon(data=data_figure3,
+#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+#               alpha=0.3)+
+#   geom_line(data=data_figure3,
+#             aes(x=x,y=predicted,linetype=type,color=response),
+#             linewidth=1)+
+#   scale_linetype_manual(values=c("solid","dotted"))+
+#   scale_y_continuous(limits=c(0,1))+
+#   ylab("Proportion")+
+#   xlab("Value of the moment")+
+#   my_theme_legend()+theme(legend.position="top")+
+#   scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+#                     name=NULL,
+#                        labels = c("Fruit initiation","Fruit maturation",
+#                                  "Seeds escaping predation"))+
+#   scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+#                      name=NULL,
+#                        labels = c("Fruit initiation","Fruit maturation",
+#                                  "Seeds escaping predation"))+
+#   guides(linetype=F)
+# fig3
+# ggsave(file="output/figures/fig3.tiff", plot=fig3, width=10, height=12)
+# ggsave(file="output/figures/fig3.svg", plot=fig3, width=10, height=12)
+```
 
 ```{r}
-fig_new<-ggplot()+
+legend_fig3<-get_legend(ggplot()+
   # geom_point(data=data_ids%>%
   #              dplyr::select(year,fr_init,avFD_std,var_std,skew_std,kurt_std)%>%
   #              pivot_longer(cols=avFD_std:kurt_std,
@@ -4472,13 +4631,13 @@ fig_new<-ggplot()+
   #                                               "skew_std","kurt_std"))),
   #            aes(x=value_predictor,y=fr_init),
   #            size=2,alpha=0.3)+
-  facet_grid2(c("predictor","year"), 
-              labeller=labeller(predictor=predictor.labs), 
+  facet_grid2(c("predictor","year"),
+              labeller=labeller(predictor=predictor.labs),
               scales = "free", independent = "x")+
-  geom_ribbon(data=data_figure,
+  geom_ribbon(data=data_figure3,
               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
               alpha=0.3)+
-  geom_line(data=data_figure,
+  geom_line(data=data_figure3,
             aes(x=x,y=predicted,linetype=type,color=response),
             linewidth=1)+
   scale_linetype_manual(values=c("solid","dotted"))+
@@ -4494,22 +4653,150 @@ fig_new<-ggplot()+
                      name=NULL,
                        labels = c("Fruit initiation","Fruit maturation",
                                  "Seeds escaping predation"))+
-  guides(linetype=F)
-fig_new
-ggsave(file="output/figures/fig_new.tiff", plot=fig_new, width=10, height=12)
-ggsave(file="output/figures/fig_new.svg", plot=fig_new, width=10, height=12)
+  guides(linetype=F))
+new_row <- tibble(x=0,predicted=0,std.error=0,conf.low=0,conf.high=0,
+                  group="1",year="1988",predictor="kurt_std",
+                  response="fr_init",type="linear",coef="0",signif="0",
+                  star="",print="")
+
+fig3<-grid.arrange(
+  legend_fig3,
+  grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=data_figure3%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=data_figure3%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=data_figure3%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=data_figure3%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=data_figure3%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=data_figure3%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=bind_rows(data_figure3%>%
+                                 filter(predictor=="kurt_std"),
+                               new_row),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=bind_rows(data_figure3%>%
+                               filter(predictor=="kurt_std"),
+                             new_row),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob("Proportion",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+),
+ncol=1,heights=c(0.05,0.95)
+)
+fig3
+ggsave(file="output/figures/fig3.tiff", plot=fig3, width=10, height=12)
 ```
 
-# New figure with space to add coefficient plots
+
+## Figure 3 with space to add coefficient plots (not used)
 
 ```{r}
 plot_87<-ggplot()+
     facet_grid2(c("predictor"),labeller=labeller(predictor=predictor.labs), 
                 scales = "free", independent = "x")+
-    geom_ribbon(data=data_figure%>%filter(year==1987),
+    geom_ribbon(data=data_figure3%>%filter(year==1987),
                 aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
                 alpha=0.3)+
-    geom_line(data=data_figure%>%filter(year==1987),
+    geom_line(data=data_figure3%>%filter(year==1987),
               aes(x=x,y=predicted,linetype=type,color=response),linewidth=1)+
     scale_linetype_manual(values=c("solid","dotted"))+
     scale_y_continuous(limits=c(0,1))+  ylab("Proportion")+
@@ -4524,10 +4811,10 @@ plot_87<-ggplot()+
 plot_88<-ggplot()+
     facet_grid2(c("predictor"),labeller=labeller(predictor=predictor.labs), 
                 scales = "free", independent = "x")+
-    geom_ribbon(data=data_figure%>%filter(year==1988),
+    geom_ribbon(data=data_figure3%>%filter(year==1988),
                 aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
                 alpha=0.3)+
-    geom_line(data=data_figure%>%filter(year==1988),
+    geom_line(data=data_figure3%>%filter(year==1988),
               aes(x=x,y=predicted,linetype=type,color=response),linewidth=1)+
     scale_linetype_manual(values=c("solid","dotted"))+
     scale_y_continuous(limits=c(0,1))+  ylab("Proportion")+
@@ -4542,10 +4829,10 @@ plot_88<-ggplot()+
 plot_89<-ggplot()+
     facet_grid2(c("predictor"),labeller=labeller(predictor=predictor.labs), 
                 scales = "free", independent = "x")+
-    geom_ribbon(data=data_figure%>%filter(year==1989),
+    geom_ribbon(data=data_figure3%>%filter(year==1989),
                 aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
                 alpha=0.3)+
-    geom_line(data=data_figure%>%filter(year==1989),
+    geom_line(data=data_figure3%>%filter(year==1989),
               aes(x=x,y=predicted,linetype=type,color=response),linewidth=1)+
     scale_linetype_manual(values=c("solid","dotted"))+
     scale_y_continuous(limits=c(0,1))+  ylab("Proportion")+
@@ -4557,14 +4844,13 @@ plot_89<-ggplot()+
                        labels = c("Fruit initiation",
                                   "Seeds escaping predation"))+
     guides(linetype=F)+theme(plot.margin=unit(c(0.5,0.5,0.5,6),"cm"))
-fig_new_space<-grid.arrange(plot_87,plot_88,plot_89,ncol=3)
-fig_new_space
-ggsave(file="output/figures/fig_new_space.tiff", plot=fig_new_space, width=18, height=12)
-ggsave(file="output/figures/fig_new_space.svg", plot=fig_new_space, width=18, height=12)
+fig3_space<-grid.arrange(plot_87,plot_88,plot_89,ncol=3)
+fig3_space
+ggsave(file="output/figures/fig3_space.tiff", plot=fig3_space, width=18, height=12)
+ggsave(file="output/figures/fig3_space.svg", plot=fig3_space, width=18, height=12)
 ```
 
-
-# Climatic data 87-89
+# Appendix 21: Variation in temperature and number of flowers opening
 
 ```{r}
 data_hline<-data_weather%>%
@@ -4607,7 +4893,7 @@ data_weather%>%
 ```
 
 ```{r}
-fig_clim_SI<-grid.arrange(
+Appendix21<-grid.arrange(
   ggplot(data=data_weather%>%filter(year==1987|year==1988|year==1989)%>%
            filter(month==4|month==5|month==6)%>%
            mutate(yday=yday(date))%>%
@@ -4653,11 +4939,9 @@ fig_clim_SI<-grid.arrange(
     geom_vline(xintercept=152,linetype="dashed"),
   nrow=3
 )
-ggsave(file="output/figures/fig_clim_SI.tiff", plot=fig_clim_SI,
+ggsave(file="output/figures/Appendix21.tiff", plot=Appendix21,
        width=10, height=12)
 ```
-
-
 
 ```{r}
 ggerrorplot(data_weather%>%
@@ -4701,137 +4985,12 @@ Anova(model_may_max) # Differences among years in May max temp
 
 # Within- vs. among-individual components of variation
 
-```{r eval=FALSE, include=FALSE}
-brms_87<-brm(opening_date_v~1+(1|id),
-             data = subset(data_id_flowers,year==1987),
-             family = gaussian(),
-             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
-save(brms_87, file = "output/models/brms_87.rda")
-```
-
-```{r eval=FALSE, include=FALSE}
-brms_88<-brm(opening_date_v~1+(1|id),
-             data = subset(data_id_flowers,year==1988),
-             family = gaussian(),
-             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
-save(brms_88, file = "output/models/brms_88.rda")
-```
-
-```{r eval=FALSE, include=FALSE}
-brms_89<-brm(opening_date_v~1+(1|id),
-             data = subset(data_id_flowers,year==1989),
-             family = gaussian(),
-             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
-save(brms_89, file = "output/models/brms_89.rda")
-```
-
-```{r}
-plot(brms_87)
-plot(brms_88)
-plot(brms_89)
-```
-
-```{r}
-cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_87))+my_theme_legend()+
-            theme(legend.position="top")+
-            theme(legend.text=element_text(size=10)),
-          mcmc_neff_hist(neff_ratio(brms_87))+my_theme_legend()+
-            theme(legend.position="top")+
-            theme(legend.text=element_text(size=10)),
-          labels = c("A)","B)"),label_fontfamily="serif")
-cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_88))+my_theme_legend()+
-            theme(legend.position="top")+
-            theme(legend.text=element_text(size=10)),
-          mcmc_neff_hist(neff_ratio(brms_88))+my_theme_legend()+
-            theme(legend.position="top")+
-            theme(legend.text=element_text(size=10)),
-          labels = c("A)","B)"),label_fontfamily="serif")
-cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_89))+my_theme_legend()+
-            theme(legend.position="top")+
-            theme(legend.text=element_text(size=10)),
-          mcmc_neff_hist(neff_ratio(brms_89))+my_theme_legend()+
-            theme(legend.position="top")+
-            theme(legend.text=element_text(size=10)),
-          labels = c("A)","B)"),label_fontfamily="serif")
-```
-
-```{r}
-summary(brms_87)
-summary(brms_88)
-summary(brms_89)
-```
 
 
-```{r}
-v_among_87 <- (VarCorr(brms_87, summary = FALSE)$id$sd)^2
-v_within_87 <- (VarCorr(brms_87, summary = FALSE)$residual$sd)^2
-prop_v_among_87 <- as.mcmc(v_among_87 / (v_among_87 + v_within_87))
-prop_v_within_87 <- as.mcmc(v_within_87 / (v_among_87 + v_within_87))
-summary(prop_v_among_87)
-summary(prop_v_within_87)
-plot(prop_v_among_87)
-plot(prop_v_within_87)
-```
 
-```{r}
-v_among_88 <- (VarCorr(brms_88, summary = FALSE)$id$sd)^2
-v_within_88 <- (VarCorr(brms_88, summary = FALSE)$residual$sd)^2
-prop_v_among_88 <- as.mcmc(v_among_88 / (v_among_88 + v_within_88))
-prop_v_within_88 <- as.mcmc(v_within_88 / (v_among_88 + v_within_88))
-summary(prop_v_among_88)
-summary(prop_v_within_88)
-plot(prop_v_among_88)
-plot(prop_v_within_88)
-```
 
-```{r}
-v_among_89 <- (VarCorr(brms_89, summary = FALSE)$id$sd)^2
-v_within_89 <- (VarCorr(brms_89, summary = FALSE)$residual$sd)^2
-prop_v_among_89 <- as.mcmc(v_among_89 / (v_among_89 + v_within_89))
-prop_v_within_89 <- as.mcmc(v_within_89 / (v_among_89 + v_within_89))
-summary(prop_v_among_89)
-summary(prop_v_within_89)
-plot(prop_v_among_89)
-plot(prop_v_within_89)
-```
 
-```{r}
-full_join(
-  data.frame(among_mean=c(summary(prop_v_among_87)$statistics[1],
-                     summary(prop_v_among_88)$statistics[1],
-                     summary(prop_v_among_89)$statistics[1]))%>%
-    mutate(year=c(1987,1988,1989)),
-  data.frame(within_mean=c(summary(prop_v_within_87)$statistics[1],
-                      summary(prop_v_within_88)$statistics[1],
-                      summary(prop_v_within_89)$statistics[1]))%>%
-    mutate(year=c(1987,1988,1989)))%>%
-    pivot_longer(cols=c("among_mean","within_mean"),
-                 names_to="effect",values_to="mean")%>%
-  mutate(effect=ifelse(effect=="among_mean","among","within"))%>%
-  full_join(data.frame(among_lower=c(coda::HPDinterval(prop_v_among_87)[1],
-                                     coda::HPDinterval(prop_v_among_88)[1],
-                                     coda::HPDinterval(prop_v_among_89)[1]),
-                       among_upper=c(coda::HPDinterval(prop_v_among_87)[2],
-                                     coda::HPDinterval(prop_v_among_88)[2],
-                                     coda::HPDinterval(prop_v_among_89)[2]),
-                       within_lower=c(coda::HPDinterval(prop_v_within_87)[1],
-                                      coda::HPDinterval(prop_v_within_88)[1],
-                                      coda::HPDinterval(prop_v_within_89)[1]),
-                       within_upper=c(coda::HPDinterval(prop_v_within_87)[2],
-                                      coda::HPDinterval(prop_v_within_88)[2],
-                                      coda::HPDinterval(prop_v_within_89)[2]))%>%
-              mutate(year=c(1987,1988,1989))%>%
-            pivot_longer(cols=c("among_lower","among_upper",
-                                "within_lower","within_upper"),
-                 names_to=c("effect","cat"),names_sep="_",values_to="value")%>%
-              pivot_wider(names_from="cat",values_from="value"))%>%
-  mutate(year=factor(year))%>%
-  ggplot(aes(x=year,y=mean,ymin=lower,ymax=upper,color=effect))+
-  geom_errorbar(linewidth=0.5,width=0.2,position=position_dodge(0.3))+
-  geom_point(size=2,position=position_dodge(0.3))+
-  my_theme()+xlab("Year")+ylab("Proportion of variance")
-ggsave(file="output/figures/prop_var.tiff", width=4, height=3.5)
-```
+
 
 # Session info
 
