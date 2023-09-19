@@ -55,6 +55,7 @@ library(brms)
 library(bayesplot)
 library(PearsonDS)
 library(plotrix)
+library(patchwork)
 ```
 
 ```{r Define ggplot themes and palettes, include=FALSE}
@@ -305,68 +306,28 @@ walk2(plot_list, seq_along(plot_list),
                plot = .x, width = 6.5, height = 9, units = "in", dpi = 300))
 ```
 
-# Appendix 3: Histograms of the moments for all years
+# Figure 2: Histograms of the moments
 
 ```{r}
-Appendix3<-grid.arrange(
-  # Mean
-  ggplot(data_ids,aes(x=avFD_v))+
-    geom_histogram(color="black",alpha=0.6,position="identity")+
-    ggtitle("A)")+
-    my_theme()+xlab("Mean")+ylab("Count"),
-  # Variance
-  ggplot(data_ids,aes(x=var))+
-    geom_histogram(color="black",alpha=0.6,position="identity")+
-    ggtitle("B)")+
-    my_theme()+xlab("Variance")+ylab("Count"),
-  # Skewness
-  ggplot(data_ids,aes(x=skew))+
-    geom_histogram(color="black",alpha=0.6,position="identity")+
-    ggtitle("C)")+
-    my_theme()+xlab("Skewness")+ylab("Count"),
-  # Kurtosis
-  ggplot(data_ids,aes(x=kurt))+
-    geom_histogram(color="black",alpha=0.6,position="identity")+
-    ggtitle("D)")+
-    my_theme()+xlab("Kurtosis")+ylab("Count"),
-  ncol=2)
-ggsave(Appendix3,filename="output/figures/Appendix3.tiff",
-       device="tiff",width=20,height=15,units="cm",dpi=300,compression="lzw")
+fig2<-
+  # All years
+  ggplot(data_figure2,aes(x=value))+
+    geom_histogram(color="black",size=0.1,fill="grey",position="identity")+
+    facet_grid2(c("variable"),scales="free",independent="x")+
+    xlab(NULL)+ylab("Count")+my_theme()+
+    theme(strip.text.y = element_blank())+
+  # Each year
+  ggplot(data_figure2,aes(x=value,fill=year))+
+    geom_histogram(color="black",size=0.1,position="identity")+
+    scale_fill_manual(values=c("#E69F00","#56B4E9","#009E73"))+
+    facet_grid2(c("variable","year"),scales="free",independent="x")+
+    xlab(NULL)+ylab(NULL)+my_theme()+
+  plot_layout(ncol=2,widths=c(0.25,0.75))+
+  plot_annotation(caption = "Value of the moment") &
+  theme(plot.caption = element_text(hjust = 0.50,family="serif",size=16))
+ggsave(fig2,filename="output/figures/fig2.tiff",
+       device="tiff",width=20,height=18,units="cm",dpi=300,compression="lzw")
 ```
-
-# Appendix 4: Histograms of the moments for each year
-
-```{r}
-Appendix4<-grid.arrange(
-  # Mean
-  ggplot(data_ids,aes(x=avFD_v,fill=year))+
-    geom_histogram(color="black",position="identity")+
-    scale_fill_manual(values=c("#E69F00","#56B4E9","#009E73"))+
-    facet_grid(rows=vars(year))+ggtitle("A)")+
-    my_theme()+xlab("Mean")+ylab("Count"),
-  # Variance
-  ggplot(data_ids,aes(x=var,fill=year))+
-    geom_histogram(color="black",position="identity")+
-    scale_fill_manual(values=c("#E69F00","#56B4E9","#009E73"))+
-    facet_grid(rows=vars(year))+ggtitle("B)")+
-    my_theme()+xlab("Variance")+ylab("Count"),
-  # Skewness
-  ggplot(data_ids,aes(x=skew,fill=year))+
-    geom_histogram(color="black",position="identity")+
-    scale_fill_manual(values=c("#E69F00","#56B4E9","#009E73"))+
-    facet_grid(rows=vars(year))+ggtitle("C)")+
-    my_theme()+xlab("Skewness")+ylab("Count"),
-  # Kurtosis
-  ggplot(data_ids,aes(x=kurt,fill=year))+
-    geom_histogram(color="black",position="identity")+
-    scale_fill_manual(values=c("#E69F00","#56B4E9","#009E73"))+
-    facet_grid(rows=vars(year))+ggtitle("D)")+
-    my_theme()+xlab("Kurtosis")+ylab("Count"),
-  ncol=2)
-ggsave(Appendix4,filename="output/figures/Appendix4.tiff",
-       device="tiff",width=20,height=25,units="cm",dpi=300,compression="lzw")
-```
-
 
 # Q1: Within- vs. among-individual components of variation
 
@@ -4923,6 +4884,7 @@ Appendix21<-grid.arrange(
     ylab("Mean temperature (ºC)")+xlab("Year")+ggtitle("B)")+
     theme(plot.title = element_text(hjust =-0.05,vjust=-6))+
     scale_x_continuous(breaks=c(1987,1988,1989))+
+    scale_y_continuous(limits=c(2,18))+
     scale_color_discrete(name=NULL,labels=c("April","May","June")),
   ggplot(data=data_id_flowers%>%dplyr::select(id,opening_date_c)%>%
            mutate(year=year(opening_date_c),yday=yday(opening_date_c),
@@ -4941,49 +4903,56 @@ Appendix21<-grid.arrange(
 )
 ggsave(file="output/figures/Appendix21.tiff", plot=Appendix21,
        width=10, height=12)
+ggsave(file="output/figures/Appendix21.svg", plot=Appendix21,
+       width=10, height=12) # To add letters for significant differences in B)
 ```
 
-```{r}
-ggerrorplot(data_weather%>%
-              filter(year==1987|year==1988|year==1989)%>%
-              filter(month==4|month==5),
-            x="year",y=c("min","mean","max"),
-            desc_stat="mean_se",error.plot = "errorbar",
-            facet.by="month",add = "mean")
-```
 
 ```{r}
 data_weather_8789<-data_weather%>%
   filter(year==1987|year==1988|year==1989)%>%
-  filter(month==4|month==5)%>%
+  filter(month==4|month==5|month==6)%>%
   mutate(year=factor(year))
 ```
 
 ```{r}
-model_april_min<-lm(min~year,subset(data_weather_8789,month==4))
-model_may_min<-lm(min~year,subset(data_weather_8789,month==5))
 model_april_mean<-lm(mean~year,subset(data_weather_8789,month==4))
 model_may_mean<-lm(mean~year,subset(data_weather_8789,month==5))
-model_april_max<-lm(max~year,subset(data_weather_8789,month==4))
-model_may_max<-lm(max~year,subset(data_weather_8789,month==5))
+model_june_mean<-lm(mean~year,subset(data_weather_8789,month==6))
 ```
 
 ```{r}
-summary(model_april_min)
-Anova(model_april_min) # Differences among years in April min temp (almost NS)
-summary(model_may_min)
-Anova(model_may_min) # Differences among years in May min temp
 summary(model_april_mean)
 Anova(model_april_mean) # No differences among years in April mean temp
 summary(model_may_mean)
 Anova(model_may_mean) # Differences among years in May mean temp
-summary(model_april_max)
-Anova(model_april_max) # No differences among years in April max temp
-summary(model_may_max)
-Anova(model_may_max) # Differences among years in May max temp
+summary(model_june_mean)
+Anova(model_june_mean) # Differences among years in June mean temp
 ```
 
-# Within- vs. among-individual components of variation
+```{r}
+letters_april_mean<-as.data.frame.list(
+  multcompLetters4(aov(mean~year,subset(data_weather_8789,month==4)),
+                   TukeyHSD(aov(mean~year,
+                                subset(data_weather_8789,month==4))))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_may_mean<-as.data.frame.list(
+  multcompLetters4(aov(mean~year,subset(data_weather_8789,month==5)),
+                   TukeyHSD(aov(mean~year,
+                                subset(data_weather_8789,month==5))))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_june_mean<-as.data.frame.list(
+  multcompLetters4(aov(mean~year,subset(data_weather_8789,month==6)),
+                   TukeyHSD(aov(mean~year,
+                                subset(data_weather_8789,month==6))))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_april_mean
+letters_may_mean
+letters_june_mean
+```
 
 
 
