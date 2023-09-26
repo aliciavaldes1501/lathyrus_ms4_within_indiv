@@ -327,7 +327,7 @@ fig2<-
       my_theme()+xlab("Skewness")+ylab(NULL)+ggtitle("C)")+
   theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
     # Kurtosis
-    ggplot(data_irt))+
+    ggplot(data_ids,aes(x=kurt))+
       geom_histogram(color="black",alpha=0.6,position="identity")+
       my_theme()+xlab("Kurtosis")+ylab(NULL)+ggtitle("D)")+
   theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
