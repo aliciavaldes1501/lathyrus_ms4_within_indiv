@@ -434,7 +434,7 @@ plot(prop_v_among_89)
 plot(prop_v_within_89)
 ```
 
-## Appendix 5: Proportions of variance
+## Appendix 3: Proportions of variance
 
 ```{r}
 full_join(
@@ -471,10 +471,10 @@ full_join(
   geom_errorbar(linewidth=0.5,width=0.2,position=position_dodge(0.3))+
   geom_point(size=2,position=position_dodge(0.3))+
   my_theme()+xlab("Year")+ylab("Proportion of variance")
-ggsave(file="output/figures/Appendix5.tiff", width=4, height=3.5)
+ggsave(file="output/figures/Appendix3.tiff", width=4, height=3.5)
 ```
 
-# Appendix 6: Differences in moments among years
+# Appendix 4: Differences in moments among years
 
 ```{r}
 Anova(lm(avFD_v~year,data_ids))
@@ -538,7 +538,7 @@ letters_kurt<-as.data.frame.list(
 ```
 
 ```{r}
-Appendix6<-grid.arrange(
+Appendix4<-grid.arrange(
   ggerrorplot(data_ids,x="year",y="avFD_v",combine=F,size=0.5,
               desc_stat="mean_se",error.plot = "errorbar",add = "none",
               xlab="Year")+my_theme()+ylab("Mean")+
@@ -583,13 +583,13 @@ Appendix6<-grid.arrange(
     ggtitle("D)")+
     theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
   ncol=2)
-Appendix6
-ggsave(Appendix6,
-       filename="output/figures/Appendix6.tiff",
+Appendix4
+ggsave(Appendix4,
+       filename="output/figures/Appendix4.tiff",
        device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
 ```
 
-# Appendix 7: Correlations of the 4 moments using all data
+# Appendix 5: Correlations of the 4 moments using all data
 
 ```{r}
 data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
@@ -599,14 +599,14 @@ data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
   cor(use="pairwise.complete.obs") %>%
   ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
   theme(legend.position="none")+my_theme()+xlab(NULL)+ylab(NULL)
-ggsave(filename="output/figures/Appendix7.tiff",
+ggsave(filename="output/figures/Appendix5.tiff",
        device="tiff",width=10,height=8,units="cm",dpi=300,compression="lzw")
 ```
 
-# Appendix 8: Correlations of the 4 moments for each year
+# Appendix 6: Correlations of the 4 moments for each year
 
 ```{r}
-Appendix8<-grid.arrange(
+Appendix6<-grid.arrange(
   data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
     filter(year==1987) %>%
     rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
@@ -632,13 +632,13 @@ Appendix8<-grid.arrange(
     ggtitle("1989")+theme(legend.position="none")+
     my_theme()+xlab(NULL)+ylab(NULL),
   ncol=3)
-ggsave(Appendix8,filename="output/figures/Appendix8.tiff",
+ggsave(Appendix6,filename="output/figures/Appendix6.tiff",
        device="tiff",width=25,height=10,units="cm",dpi=300,compression="lzw")
 ```
 
 OK? Check VIFs of each model.
 
-# Appendix 9: Differences in fitness components among years
+# Appendix 7: Differences in fitness components among years
 
 ```{r}
 # Fruit set
@@ -763,7 +763,7 @@ data_ids$prop_seeds_escpred<-1-data_ids$prop_seed_preyed
 ```
 
 ```{r}
-Appendix9<-grid.arrange(
+Appendix7<-grid.arrange(
   ggerrorplot(data_ids,x="year",y="fr_init",combine=F,size=0.5,
               desc_stat="mean_se",error.plot = "errorbar",add = "none",
               xlab="Year")+my_theme()+ylab("Fruit initiation")+
@@ -808,9 +808,9 @@ Appendix9<-grid.arrange(
     ggtitle("D)")+
     theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
   ncol=2)
-Appendix9
-ggsave(Appendix9,
-       filename="output/figures/Appendix9.tiff",
+Appendix7
+ggsave(Appendix7,
+       filename="output/figures/Appendix7.tiff",
        device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
 ```
 
@@ -829,7 +829,7 @@ data_ids<-data_ids%>%
 
 Using (within-year) standardized traits.
 
-## Appendix 10: Global models phenotypic selection with n_fl
+## Appendix 8: Global models phenotypic selection with n_fl
 
 ### Linear effects
 
@@ -1880,7 +1880,7 @@ fig3<-grid.arrange(
 ggsave(file="output/figures/fig3.tiff", plot=fig3, width=10, height=10)
 ```
 
-## Appendix 11: Global models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
+## Appendix 9: Global models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
 
 ### Linear effects
 
@@ -2235,7 +2235,7 @@ save(BCIs_abs_nfl_nonlinear,file="output/BCIs_abs_nfl_nonlinear.RData")
 BCIs_abs_nfl_nonlinear
 ```
 
-## Appendix 12: Yearly models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
+## Appendix 10: Yearly models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
 
 ### Linear effects
 
@@ -2691,7 +2691,7 @@ save(BCIs_abs_nfl_nonlinear_89,file="output/BCIs_abs_nfl_nonlinear_89.RData")
 BCIs_abs_nfl_nonlinear_89
 ```
 
-## Appendix 13: Global models without n_fl
+## Appendix 11: Global models without n_fl
 
 ### Linear effects
 
@@ -3398,7 +3398,7 @@ BCIs_sel_nonlinear_89
 
 # Q3: Effects of within-individual variation on fitness components
 
-## Appendix 14: Global models fruit initiation, fruit maturation and proportion of seeds escaping predation
+## Appendix 12: Global models fruit initiation, fruit maturation and proportion of seeds escaping predation
 
 ### Fruit initiation
 
@@ -3528,7 +3528,7 @@ Anova(seed_escpred_nonlinear) # Use type II (now) or III?
 
 Significant non-linear effects according to Anova: I(var_std^2), I(skew_std^2), year:I(avFD_std^2), year:I(skew_std^2)
 
-## Appendix 15: Yearly models fruit initiation
+## Appendix 13: Yearly models fruit initiation
 
 ### Linear effects
 
@@ -3587,7 +3587,7 @@ Anova(fr_init_nonlinear_88)
 Anova(fr_init_nonlinear_89) 
 ```
 
-## Appendix 16: Effects on fruit initiation
+## Appendix 14: Effects on fruit initiation
 
 ```{r}
 coefs_fr_init_linear<-rbind(
@@ -3709,36 +3709,7 @@ prediction_fr_init<-rbind(prediction_fr_init_linear,
 ```
 
 ```{r}
-# Appendix16<-ggplot()+
-#   geom_point(data=data_ids%>%
-#                dplyr::select(year,fr_init,avFD_std,var_std,skew_std,kurt_std)%>%
-#                pivot_longer(cols=avFD_std:kurt_std,
-#                             names_to="predictor",values_to="value_predictor")%>%
-#                mutate(predictor=factor(predictor,
-#                                        levels=c("avFD_std","var_std",
-#                                                 "skew_std","kurt_std"))),
-#              aes(x=value_predictor,y=fr_init),
-#              size=2,alpha=0.3)+
-#   facet_grid2(c("predictor","year"), 
-#               labeller=labeller(predictor=predictor.labs), 
-#               scales = "free", independent = "all")+
-#   geom_ribbon(data=prediction_fr_init,
-#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-#               alpha=0.3)+
-#   geom_line(data=prediction_fr_init,
-#             aes(x=x,y=predicted,linetype=signif,color=type),
-#             linewidth=1)+
-#   scale_linetype_manual(values=c("dotted", "solid"))+
-#   ylab("Fruit initiation (proportion of flowers that initiated fruits)")+
-#   xlab("Value of the moment")+
-#   my_theme()
-# Appendix16
-# ggsave(file="output/figures/Appendix16.tiff",
-#        plot=Appendix16, width=10, height=10)
-```
-
-```{r}
-Appendix16<-grid.arrange(
+Appendix14<-grid.arrange(
   ggplot()+
     facet_grid2(c("predictor","year"), 
                 labeller=labeller(predictor=predictor.labs), 
@@ -3840,11 +3811,11 @@ Appendix16<-grid.arrange(
   top=textGrob("       1987                                                     1988                                                        1989",
                gp=gpar(fontsize=14,fontfamily="serif"))
   )
-ggsave(file="output/figures/Appendix16.tiff",plot=Appendix16,width=10,height=10)
+ggsave(file="output/figures/Appendix14.tiff",plot=Appendix14,width=10,height=10)
 ```
 
 
-## Appendix 17: Yearly models proportion of seeds escaping predation
+## Appendix 15: Yearly models proportion of seeds escaping predation
 
 ### Linear effects
 
@@ -3919,7 +3890,7 @@ Anova(seed_escpred_nonlinear_88)
 Anova(seed_escpred_nonlinear_89) 
 ```
 
-## Appendix 18: Effects on proportion of seeds escaping predation
+## Appendix 16: Effects on proportion of seeds escaping predation
 
 ```{r}
 coefs_seed_escpred_linear<-rbind(
@@ -4041,38 +4012,7 @@ prediction_seed_escpred<-rbind(prediction_seed_escpred_linear,
 ```
 
 ```{r}
-# Appendix18<-ggplot()+
-#   geom_point(data=data_ids%>%
-#                filter(n_seed>0)%>%
-#                dplyr::select(year,prop_seed_preyed,
-#                       avFD_std,var_std,skew_std,kurt_std)%>%
-#                pivot_longer(cols=avFD_std:kurt_std,
-#                             names_to="predictor",values_to="value_predictor")%>%
-#                mutate(predictor=factor(predictor,
-#                                        levels=c("avFD_std","var_std",
-#                                                 "skew_std","kurt_std")))%>%
-#                filter(!is.na(prop_seed_preyed)),
-#              aes(x=value_predictor,y=1-prop_seed_preyed),
-#              size=2,alpha=0.3)+
-#   facet_grid2(c("predictor","year"), 
-#               labeller=labeller(predictor=predictor.labs), 
-#               scales = "free", independent = "all")+
-#   geom_ribbon(data=prediction_seed_escpred,
-#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-#               alpha=0.3)+
-#   geom_line(data=prediction_seed_escpred,
-#             aes(x=x,y=predicted,linetype=signif,color=type),
-#             linewidth=1)+
-#   scale_linetype_manual(values=c("dotted", "solid"))+
-#   ylab("Proportion of seeds escaping predation")+
-#   xlab("Value of the moment")+
-#   my_theme()
-# Appendix18
-# ggsave(file="output/figures/Appendix18.tiff", plot=Appendix18, width=10, height=10)
-```
-
-```{r}
-Appendix18<-grid.arrange(
+Appendix16<-grid.arrange(
   ggplot()+
     facet_grid2(c("predictor","year"), 
                 labeller=labeller(predictor=predictor.labs), 
@@ -4174,11 +4114,10 @@ Appendix18<-grid.arrange(
   top=textGrob("       1987                                                     1988                                                        1989",
                gp=gpar(fontsize=14,fontfamily="serif"))
 )
-ggsave(file="output/figures/Appendix18.tiff",plot=Appendix18,width=10,height=10)
+ggsave(file="output/figures/Appendix16.tiff",plot=Appendix16,width=10,height=10)
 ```
 
-
-## Appendix 19: Yearly models fruit maturation
+## Appendix 17: Yearly models fruit maturation
 
 ### Linear effects
 
@@ -4237,7 +4176,7 @@ Anova(fr_mat_nonlinear_88)
 Anova(fr_mat_nonlinear_89) 
 ```
 
-## Appendix 20: Effects on fruit maturation
+## Appendix 18: Effects on fruit maturation
 
 ```{r}
 coefs_fr_mat_linear<-rbind(
@@ -4359,36 +4298,7 @@ prediction_fr_mat<-rbind(prediction_fr_mat_linear,
 ```
 
 ```{r}
-# Appendix20<-ggplot()+
-#   geom_point(data=data_ids%>%
-#                dplyr::select(year,fr_mat,avFD_std,var_std,skew_std,kurt_std)%>%
-#                pivot_longer(cols=avFD_std:kurt_std,
-#                             names_to="predictor",values_to="value_predictor")%>%
-#                mutate(predictor=factor(predictor,
-#                                        levels=c("avFD_std","var_std",
-#                                                 "skew_std","kurt_std"))),
-#              aes(x=value_predictor,y=fr_mat),
-#              size=2,alpha=0.3)+
-#   facet_grid2(c("predictor","year"), 
-#               labeller=labeller(predictor=predictor.labs), 
-#               scales = "free", independent = "all")+
-#   geom_ribbon(data=prediction_fr_mat,
-#               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
-#               alpha=0.3)+
-#   geom_line(data=prediction_fr_mat,
-#             aes(x=x,y=predicted,linetype=signif,color=type),
-#             linewidth=1)+
-#   scale_linetype_manual(values=c("dotted", "solid"))+
-#   ylab("Fruit maturation (proportion of initiated fruits that developed to mature fruits)")+
-#   xlab("Value of the moment")+
-#   my_theme()
-# Appendix20
-# ggsave(file="output/figures/Appendix20.tiff",
-#        plot=Appendix20, width=10, height=10)
-```
-
-```{r}
-Appendix20<-grid.arrange(
+Appendix18<-grid.arrange(
   ggplot()+
     facet_grid2(c("predictor","year"), 
                 labeller=labeller(predictor=predictor.labs), 
@@ -4490,7 +4400,7 @@ Appendix20<-grid.arrange(
   top=textGrob("       1987                                                     1988                                                        1989",
                gp=gpar(fontsize=14,fontfamily="serif"))
 )
-ggsave(file="output/figures/Appendix20.tiff",plot=Appendix20,width=10,height=10)
+ggsave(file="output/figures/Appendix18.tiff",plot=Appendix18,width=10,height=10)
 ```
 
 
@@ -4527,10 +4437,10 @@ legend_fig4<-get_legend(ggplot()+
   facet_grid2(c("predictor","year"),
               labeller=labeller(predictor=predictor.labs),
               scales = "free", independent = "x")+
-  geom_ribbon(data=data_figure3,
+  geom_ribbon(data=data_figure4,
               aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
               alpha=0.3)+
-  geom_line(data=data_figure3,
+  geom_line(data=data_figure4,
             aes(x=x,y=predicted,linetype=type,color=response),
             linewidth=1)+
   scale_linetype_manual(values=c("solid","dotted"))+
@@ -4679,7 +4589,7 @@ fig4
 ggsave(file="output/figures/fig4.tiff", plot=fig4, width=10, height=12)
 ```
 
-# Appendix 21: Variation in temperature and number of flowers opening
+# Appendix 19: Variation in temperature and number of flowers opening
 
 ```{r}
 data_hline<-data_weather%>%
@@ -4722,7 +4632,7 @@ data_weather%>%
 ```
 
 ```{r}
-Appendix21<-grid.arrange(
+Appendix19<-grid.arrange(
   ggplot(data=data_weather%>%filter(year==1987|year==1988|year==1989)%>%
            filter(month==4|month==5|month==6)%>%
            mutate(yday=yday(date))%>%
@@ -4769,9 +4679,9 @@ Appendix21<-grid.arrange(
     geom_vline(xintercept=152,linetype="dashed"),
   nrow=3
 )
-ggsave(file="output/figures/Appendix21.tiff", plot=Appendix21,
+ggsave(file="output/figures/Appendix19.tiff", plot=Appendix19,
        width=10, height=12)
-ggsave(file="output/figures/Appendix21.svg", plot=Appendix21,
+ggsave(file="output/figures/Appendix19.svg", plot=Appendix19,
        width=10, height=12) # To add letters for significant differences in B)
 ```
 
