@@ -250,7 +250,8 @@ fig1<-grid.arrange(
     scale_x_continuous(breaks=c(62,64,66,68,70,72)),
   ncol=2
 )
-ggsave(file="output/figures/fig1.tiff", plot=fig1, width=12, height=10)
+ggsave(file="output/figures/fig1.tiff", plot=fig1, width=8, height=8,dpi=300,
+       compression="lzw")
 ```
 
 # Ranges, means and SD of the four moments
@@ -337,6 +338,91 @@ fig2<-
 fig2
 ggsave(fig2,filename="output/figures/fig2.tiff",
        device="tiff",width=28,height=8,units="cm",dpi=300,compression="lzw")
+```
+
+# New Fig. 1 (comb. with old Fig. 2)
+
+```{r}
+fig1_newA<-grid.arrange(
+  ggplot(curves%>%filter(moment=="Mean"),aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Mean")+xlab("Opening date")+ylab("Density")+ggtitle("A)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("63.2", "66.2", "69.2"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+ylab(NULL)+
+    scale_x_continuous(breaks=c(60,62,64,66,68,70,72)),
+  ggplot(curves%>%filter(moment=="Variance"),aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Variance")+xlab("Opening date")+ylab("Density")+ggtitle("B)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("0.05", "0.5", "3.0"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+ylab(NULL)+
+    scale_x_continuous(breaks=c(60,62,64,66,68,70,72)),
+  ggplot(curves%>%filter(moment=="Skewness"),aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Skewness")+xlab("Opening date")+ylab("Density")+ggtitle("C)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("-1.1", "0.0", "1.1"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+ylab(NULL)+
+    scale_x_continuous(breaks=c(62,64,66,68,70,72)),
+  ggplot(curves%>%filter(moment=="Kurtosis"),
+         aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Kurtosis")+xlab("Opening date")+ylab("Density")+ggtitle("D)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("2.0", "3.0", "6.3"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+ylab(NULL)+
+    scale_x_continuous(breaks=c(62,64,66,68,70,72)),
+  ncol=4,
+  left=textGrob("Density",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90)
+)
+
+fig1_newB<-grid.arrange(
+  # Mean
+  ggplot(data_ids,aes(x=avFD_v))+
+    #geom_density(fill="grey")+
+    geom_histogram(color="black",alpha=0.3,position="identity")+
+    my_theme()+xlab("Mean")+ylab(NULL)+
+    geom_vline(xintercept=63.2,color="#1a9641",size=1.5,alpha=1)+
+    geom_vline(xintercept=66.2,color="#ffffbf",size=1.5,alpha=1)+
+    geom_vline(xintercept=69.2,color="#d7191c",size=1.5,alpha=1)+
+    theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+  # Variance
+  ggplot(data_ids,aes(x=var))+
+    #geom_density(fill="grey")+
+    geom_histogram(color="black",alpha=0.3,position="identity")+
+    my_theme()+xlab("Variance")+ylab(NULL)+
+    geom_vline(xintercept=0.05,color="#1a9641",size=1.5,alpha=1)+
+    geom_vline(xintercept=0.5,color="#ffffbf",size=1.5,alpha=1)+
+    geom_vline(xintercept=3,color="#d7191c",size=1.5,alpha=1)+
+    theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+  # Skewness
+  ggplot(data_ids,aes(x=skew))+
+    #geom_density(fill="grey")+
+    geom_histogram(color="black",alpha=0.3,position="identity")+
+    my_theme()+xlab("Skewness")+ylab(NULL)+
+    geom_vline(xintercept=-1.1,color="#1a9641",size=1.5,alpha=1)+
+    geom_vline(xintercept=0.0,color="#ffffbf",size=1.5,alpha=1)+
+    geom_vline(xintercept=1.1,color="#d7191c",size=1.5,alpha=1)+
+    theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+  # Kurtosis
+  ggplot(data_ids,aes(x=kurt))+
+    #geom_density(fill="grey")+
+    geom_histogram(color="black",alpha=0.3,position="identity")+
+    my_theme()+xlab("Kurtosis")+ylab(NULL)+
+    geom_vline(xintercept=2.0,color="#1a9641",size=1.5,alpha=1)+
+    geom_vline(xintercept=3.0,color="#ffffbf",size=1.5,alpha=1)+
+    geom_vline(xintercept=6.3,color="#d7191c",size=1.5,alpha=1)+
+    theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+  ncol=4,widths=c(0.25,0.25,0.25,0.25),
+  left=textGrob("Count",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90))
+
+fig1_new<-grid.arrange(fig1_newA,fig1_newB,nrow=2,
+                       heights=c(0.55,0.45))
+ggsave(file="output/figures/fig1_new.tiff",plot=fig1_new,width=15,height=8,
+       dpi=300,compression="lzw")
 ```
 
 # Q1: Within- vs. among-individual components of variation
@@ -1877,7 +1963,8 @@ fig3<-grid.arrange(
   top=textGrob("       1987                                                     1988                                                        1989",
                gp=gpar(fontsize=14,fontfamily="serif"))
 )
-ggsave(file="output/figures/fig3.tiff", plot=fig3, width=10, height=10)
+ggsave(file="output/figures/fig3.tiff", plot=fig3, width=8, height=8,dpi=300,
+       compression="lzw")
 ```
 
 ## Appendix 9: Global models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
@@ -4580,13 +4667,14 @@ fig4<-grid.arrange(
                 gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
   bottom=textGrob("Value of the moment",
                   gp=gpar(fontsize=14,fontfamily="serif")),
-  top=textGrob("       1987                                                     1988                                                        1989",
+  top=textGrob("       1987                                     1988                                           1989",
                gp=gpar(fontsize=14,fontfamily="serif"))
 ),
 ncol=1,heights=c(0.05,0.95)
 )
 fig4
-ggsave(file="output/figures/fig4.tiff", plot=fig4, width=10, height=12)
+ggsave(file="output/figures/fig4.tiff", plot=fig4, width=8, height=10,dpi=300,
+       compression="lzw")
 ```
 
 # Appendix 19: Variation in temperature and number of flowers opening
