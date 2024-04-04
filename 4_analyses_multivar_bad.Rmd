@@ -1,0 +1,4731 @@
+---
+title: "Selection on within-individual variation in flowering time in Lathyrus vernus"
+author: "Alicia Valdés"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    toc: yes
+    toc_depth: '4'
+    df_print: paged
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: '4'
+subtitle: "Analyses of relationships between phenological traits and fruit initiation
+  and pre-dispersal seed predation, and analyses of phenotypic selection on phenological
+  traits"
+editor_options:
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+options(tibble.width = Inf)
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r load packages, include=FALSE}
+library(tidyverse)
+library(jtools)
+library(ggeffects)
+library(glmmTMB)
+library(DHARMa)
+library(RColorBrewer)
+library(gridExtra)
+library(ggthemes)
+library(ggfortify)
+library(ggcorrplot)
+library(car)
+library(broom.mixed)
+library(performance)
+library(sjPlot)
+library(lme4)
+library(bcaboot)
+library(purrr)
+library(ggridges)
+library(moments)
+library(grid)
+library(stringr)
+library(ggh4x)
+library(ggpubr)
+library(multcompView)
+library(multcomp)
+library(brms)
+library(bayesplot)
+library(PearsonDS)
+library(plotrix)
+library(patchwork)
+```
+
+```{r Define ggplot themes and palettes, include=FALSE}
+my_theme <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(legend.position="none")+theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+my_theme_legend <- function(){
+  theme_base()+theme(plot.background=element_rect(fill="white", colour=NA))+
+  theme(text=element_text(family="serif"))+
+  theme(plot.title = element_text(hjust =-0.06))
+}
+myPalette <- colorRampPalette(brewer.pal(11, "YlOrRd"))
+```
+
+```{r load previously created output}
+load(file="output/BCIs_sel_linear.RData")
+load(file="output/BCIs_sel_linear_87.RData")
+load(file="output/BCIs_sel_linear_88.RData")
+load(file="output/BCIs_sel_linear_89.RData")
+load(file="output/BCIs_sel_nfl_linear.RData")
+load(file="output/BCIs_sel_nfl_linear_87.RData")
+load(file="output/BCIs_sel_nfl_linear_88.RData")
+load(file="output/BCIs_sel_nfl_linear_89.RData")
+load(file="output/BCIs_sel_nfl_linear_87_mv.RData")
+load(file="output/BCIs_sel_nfl_linear_88_mv.RData")
+load(file="output/BCIs_sel_nfl_linear_89_mv.RData")
+load(file="output/BCIs_sel_nfl_linear_87_mv2.RData")
+load(file="output/BCIs_sel_nfl_linear_88_mv2.RData")
+load(file="output/BCIs_sel_nfl_linear_89_mv2.RData")
+load(file="output/BCIs_abs_nfl_linear.RData")
+load(file="output/models/brms_87.rda")
+load(file="output/models/brms_88.rda")
+load(file="output/models/brms_89.rda")
+load(file="output/BCIs_abs_nfl_linear_87.RData")
+load(file="output/BCIs_abs_nfl_linear_88.RData")
+load(file="output/BCIs_abs_nfl_linear_89.RData")
+```
+
+# Read clean data from .csv files
+
+```{r}
+data_ids <- read_csv("data/clean/data_ids.csv")
+data_ids$imp_seed_preyed <- as.factor(data_ids$imp_seed_preyed)
+data_ids$year <- as.factor(data_ids$year)
+data_ids$subplot<-as.factor(data_ids$subplot)
+data_id_flowers <- read_csv("data/clean/data_id_flowers.csv")
+data_weather<-read_csv("C:/Users/alici/Dropbox/SU/Projects/lathyrus/lathyrus_ms1/data/clean/weather_GDD.csv")
+```
+
+# Data manipulation
+
+## Correct errors in n_fl and n_fr
+
+```{r}
+filter(data_ids,n_fl!=n_fl_a) # n_fl_a is correct
+```
+
+```{r}
+filter(data_ids,n_fr!=n_mat_intact_fr) # n_mat_intact_fr is correct
+```
+
+```{r}
+data_ids<-data_ids%>%
+  dplyr::select(-n_fl)%>%
+  rename(n_fl=n_fl_a)
+```
+
+```{r}
+data_ids<-data_ids%>%
+  dplyr::select(-n_fr) # Use n_mat_intact_fr 
+```
+
+# Recalculate fruit set (not used), fruit initiation and fruit maturation
+
+```{r}
+data_ids<-data_ids%>%
+  mutate(n_mat_intact_fr=ifelse(is.na(n_mat_intact_fr),0,n_mat_intact_fr))
+```
+
+```{r}
+data_ids<-data_ids%>%
+  mutate(fr_set=n_mat_intact_fr/n_fl,
+         fr_init=n_init_fr/n_fl,
+         fr_mat=ifelse(n_init_fr>0,n_mat_intact_fr/n_init_fr,NA))
+```
+
+# Figure 1
+
+```{r}
+curves_mean<-data.frame(
+  low=rpearson(10000,
+               moments=c(mean=63.2,variance=0.5,skewness=0,kurtosis=3)),
+  medium=rpearson(10000,
+                  moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=3)),
+  high=rpearson(10000,
+                moments=c(mean=69.2,variance=0.5,skewness=0,kurtosis=3)))%>%
+  pivot_longer(cols=low:high,names_to="curve_id",values_to="value")%>%
+  mutate(moment="Mean")
+curves_var<-data.frame(
+  low=rpearson(10000,
+               moments=c(mean=66.2,variance=0.05,skewness=0,kurtosis=3)),
+  medium=rpearson(10000,
+                  moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=3)),
+  high=rpearson(10000,
+                moments=c(mean=66.2,variance=3,skewness=0,kurtosis=3)))%>%
+  pivot_longer(cols=low:high,names_to="curve_id",values_to="value")%>%
+  mutate(moment="Variance")
+curves_skew<-data.frame(
+  low=rpearson(10000,
+               #moments=c(mean=66.2,variance=0.5,skewness=-1.3,kurtosis=3)),
+               moments=c(mean=66.2,variance=0.5,skewness=-1.1,kurtosis=3)),
+  medium=rpearson(10000,
+                  moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=3)),
+  high=rpearson(10000,
+                #moments=c(mean=66.2,variance=0.5,skewness=1.3,kurtosis=3)))%>%
+                moments=c(mean=66.2,variance=0.5,skewness=1.1,kurtosis=3)))%>%
+  pivot_longer(cols=low:high,names_to="curve_id",values_to="value")%>%
+  mutate(moment="Skewness")
+curves_kurt<-data.frame(
+  low=rpearson(10000,
+               #moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=1.5))
+               moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=2)),
+  medium=rpearson(10000,
+                  moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=3)),
+  high=rpearson(10000,
+                moments=c(mean=66.2,variance=0.5,skewness=0,kurtosis=7)))%>%
+  pivot_longer(cols=low:high,names_to="curve_id",values_to="value")%>%
+  mutate(moment="Kurtosis")
+curves<-rbind(curves_mean,curves_var,curves_skew,curves_kurt)%>%
+  mutate(moment=factor(moment,
+                       levels=c("Mean","Variance","Skewness","Kurtosis")),
+         curve_id=factor(curve_id,
+                         levels=c("low","medium","high")))
+```
+
+```{r}
+curves%>%group_by(moment,curve_id)%>%
+  summarise(mean=mean(value),var=var(value),
+            skew=skewness(value),kurt=kurtosis(value))
+```
+
+```{r}
+fig1<-grid.arrange(
+  ggplot(curves%>%filter(moment=="Mean"),aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Mean")+xlab("Opening date")+ylab("Density")+ggtitle("A)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("63.2", "66.2", "69.2"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+
+    scale_x_continuous(breaks=c(60,62,64,66,68,70,72)),
+  ggplot(curves%>%filter(moment=="Variance"),aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Variance")+xlab("Opening date")+ylab("Density")+ggtitle("B)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("0.05", "0.5", "3.0"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+
+    scale_x_continuous(breaks=c(60,62,64,66,68,70,72)),
+  ggplot(curves%>%filter(moment=="Skewness"),aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Skewness")+xlab("Opening date")+ylab("Density")+ggtitle("C)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("-1.1", "0.0", "1.1"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+
+    scale_x_continuous(breaks=c(62,64,66,68,70,72)),
+  ggplot(curves%>%filter(moment=="Kurtosis"),
+         aes(x=value,fill=curve_id))+
+    geom_density(alpha=0.5)+my_theme_legend()+theme(legend.position="top")+
+    labs(fill="Kurtosis")+xlab("Opening date")+ylab("Density")+ggtitle("D)")+
+    scale_fill_manual(values=c("#1a9641","#ffffbf","#d7191c"),
+                      labels=c("2.0", "3.0", "6.3"))+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+
+    scale_x_continuous(breaks=c(62,64,66,68,70,72)),
+  ncol=2
+)
+ggsave(file="output/figures/fig1.tiff", plot=fig1, width=8, height=8,dpi=300,
+       compression="lzw")
+```
+
+# Ranges, means and SD of the four moments
+
+```{r}
+data_ids%>%
+  summarise(min_mean=min(avFD_v),max_mean=max(avFD_v),
+            mean_mean=mean(avFD_v),sd_mean=sd(avFD_v),
+            min_var=min(var,na.rm=T),max_var=max(var,na.rm=T),
+            mean_var=mean(var,na.rm=T),sd_var=sd(var,na.rm=T),
+            min_skew=min(skew,na.rm=T),max_skew=max(skew,na.rm=T),
+            mean_skew=mean(skew,na.rm=T),sd_skew=sd(skew,na.rm=T),
+            min_kurt=min(kurt,na.rm=T),max_kurt=max(kurt,na.rm=T),
+            mean_kurt=mean(kurt,na.rm=T),sd_kurt=sd(kurt,na.rm=T))
+```
+
+# Appendix 2: Flowering phenology curves of individuals
+
+```{r}
+ids_years_1_2fl<-data_id_flowers%>%group_by(year,id)%>%mutate(count=n())%>%
+  filter(count==1|count==2)%>%dplyr::select(id,year)%>%distinct(id,year) 
+# All ids and years with 1 or 2 fl
+
+data_id_flowers_3fl<-data_id_flowers %>%
+  anti_join(ids_years_1_2fl)%>% # Keep only ids and years with at least 3 fl
+  mutate(subplot=factor(subplot,ordered=T),number=factor(number,ordered=T))%>%
+  mutate(year=factor(year),
+         id=factor(id,
+                   levels=unique(id[order(subplot,number)]), ordered=TRUE))
+# id as ordered factor based on subplot and number
+
+# split the data into chunks of 21 subplot, number
+# based on their unique id values
+id_chunks <-data_id_flowers_3fl %>% 
+  distinct(subplot,number) %>%
+  arrange(subplot,number)%>%
+  mutate(chunk = ceiling(row_number()/21)) %>%
+  inner_join(data_id_flowers_3fl, by =c("subplot","number")) %>%
+  split(.$chunk)
+
+# create a list of plots, one for each chunk of ids
+plot_list<-map(id_chunks,~ggplot(.x,aes(x=opening_date_v,y=id,fill=year))+
+                   geom_density_ridges()+
+                   theme_ridges()+theme(text=element_text(family="serif"))+
+                   theme(legend.position="top")+
+                   labs(x="Opening date (number of days from the vernal equinox)",
+                        y="Individual")+
+                   scale_fill_manual(values=c("#E69F00","#56B4E9","#009E73")))
+
+# save the plots as TIFF files
+walk2(plot_list, seq_along(plot_list), 
+      ~ ggsave(paste0("output/figures/Appendix2_", .y, ".tiff"), 
+               plot = .x, width = 6.5, height = 9, units = "in", dpi = 300))
+```
+
+# Figure 2: Histograms of the moments
+
+```{r}
+fig2<-
+  grid.arrange(
+    # Mean
+    ggplot(data_ids,aes(x=avFD_v))+
+      geom_histogram(color="black",alpha=0.6,position="identity")+
+      my_theme()+xlab("Mean")+ylab(NULL)+ggtitle("A)")+
+  theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+    # Variance
+    ggplot(data_ids,aes(x=var))+
+      geom_histogram(color="black",alpha=0.6,position="identity")+
+      my_theme()+xlab("Variance")+ylab(NULL)+ggtitle("B)")+
+  theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+    # Skewness
+    ggplot(data_ids,aes(x=skew))+
+      geom_histogram(color="black",alpha=0.6,position="identity")+
+      my_theme()+xlab("Skewness")+ylab(NULL)+ggtitle("C)")+
+  theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+    # Kurtosis
+    ggplot(data_ids,aes(x=kurt))+
+      geom_histogram(color="black",alpha=0.6,position="identity")+
+      my_theme()+xlab("Kurtosis")+ylab(NULL)+ggtitle("D)")+
+  theme(plot.title=element_text(hjust=-0.2,vjust=-4)),
+    ncol=4,widths=c(0.25,0.25,0.25,0.25),
+    left=textGrob("Count",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90))
+fig2
+ggsave(fig2,filename="output/figures/fig2.tiff",
+       device="tiff",width=28,height=8,units="cm",dpi=300,compression="lzw")
+```
+
+# Q1: Within- vs. among-individual components of variation
+
+```{r eval=FALSE, include=FALSE}
+brms_87<-brm(opening_date_v~1+(1|id),
+             data = subset(data_id_flowers,year==1987),
+             family = gaussian(),
+             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
+save(brms_87, file = "output/models/brms_87.rda")
+```
+
+```{r eval=FALSE, include=FALSE}
+brms_88<-brm(opening_date_v~1+(1|id),
+             data = subset(data_id_flowers,year==1988),
+             family = gaussian(),
+             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
+save(brms_88, file = "output/models/brms_88.rda")
+```
+
+```{r eval=FALSE, include=FALSE}
+brms_89<-brm(opening_date_v~1+(1|id),
+             data = subset(data_id_flowers,year==1989),
+             family = gaussian(),
+             chains = 4, cores = 4, iter = 10000, warmup = 3000, thin = 5)
+save(brms_89, file = "output/models/brms_89.rda")
+```
+
+```{r}
+plot(brms_87)
+plot(brms_88)
+plot(brms_89)
+```
+
+```{r}
+cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_87))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          mcmc_neff_hist(neff_ratio(brms_87))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          labels = c("A)","B)"),label_fontfamily="serif")
+cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_88))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          mcmc_neff_hist(neff_ratio(brms_88))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          labels = c("A)","B)"),label_fontfamily="serif")
+cowplot::plot_grid(mcmc_rhat_hist(brms::rhat(brms_89))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          mcmc_neff_hist(neff_ratio(brms_89))+my_theme_legend()+
+            theme(legend.position="top")+
+            theme(legend.text=element_text(size=10)),
+          labels = c("A)","B)"),label_fontfamily="serif")
+```
+
+```{r}
+summary(brms_87)
+summary(brms_88)
+summary(brms_89)
+```
+
+```{r}
+v_among_87 <- (VarCorr(brms_87, summary = FALSE)$id$sd)^2
+v_within_87 <- (VarCorr(brms_87, summary = FALSE)$residual$sd)^2
+prop_v_among_87 <- as.mcmc(v_among_87 / (v_among_87 + v_within_87))
+prop_v_within_87 <- as.mcmc(v_within_87 / (v_among_87 + v_within_87))
+summary(prop_v_among_87)
+summary(prop_v_within_87)
+plot(prop_v_among_87)
+plot(prop_v_within_87)
+```
+
+```{r}
+v_among_88 <- (VarCorr(brms_88, summary = FALSE)$id$sd)^2
+v_within_88 <- (VarCorr(brms_88, summary = FALSE)$residual$sd)^2
+prop_v_among_88 <- as.mcmc(v_among_88 / (v_among_88 + v_within_88))
+prop_v_within_88 <- as.mcmc(v_within_88 / (v_among_88 + v_within_88))
+summary(prop_v_among_88)
+summary(prop_v_within_88)
+plot(prop_v_among_88)
+plot(prop_v_within_88)
+```
+
+```{r}
+v_among_89 <- (VarCorr(brms_89, summary = FALSE)$id$sd)^2
+v_within_89 <- (VarCorr(brms_89, summary = FALSE)$residual$sd)^2
+prop_v_among_89 <- as.mcmc(v_among_89 / (v_among_89 + v_within_89))
+prop_v_within_89 <- as.mcmc(v_within_89 / (v_among_89 + v_within_89))
+summary(prop_v_among_89)
+summary(prop_v_within_89)
+plot(prop_v_among_89)
+plot(prop_v_within_89)
+```
+
+## Appendix 3: Proportions of variance
+
+```{r}
+full_join(
+  data.frame(among_mean=c(summary(prop_v_among_87)$statistics[1],
+                     summary(prop_v_among_88)$statistics[1],
+                     summary(prop_v_among_89)$statistics[1]))%>%
+    mutate(year=c(1987,1988,1989)),
+  data.frame(within_mean=c(summary(prop_v_within_87)$statistics[1],
+                      summary(prop_v_within_88)$statistics[1],
+                      summary(prop_v_within_89)$statistics[1]))%>%
+    mutate(year=c(1987,1988,1989)))%>%
+    pivot_longer(cols=c("among_mean","within_mean"),
+                 names_to="effect",values_to="mean")%>%
+  mutate(effect=ifelse(effect=="among_mean","among","within"))%>%
+  full_join(data.frame(among_lower=c(coda::HPDinterval(prop_v_among_87)[1],
+                                     coda::HPDinterval(prop_v_among_88)[1],
+                                     coda::HPDinterval(prop_v_among_89)[1]),
+                       among_upper=c(coda::HPDinterval(prop_v_among_87)[2],
+                                     coda::HPDinterval(prop_v_among_88)[2],
+                                     coda::HPDinterval(prop_v_among_89)[2]),
+                       within_lower=c(coda::HPDinterval(prop_v_within_87)[1],
+                                      coda::HPDinterval(prop_v_within_88)[1],
+                                      coda::HPDinterval(prop_v_within_89)[1]),
+                       within_upper=c(coda::HPDinterval(prop_v_within_87)[2],
+                                      coda::HPDinterval(prop_v_within_88)[2],
+                                      coda::HPDinterval(prop_v_within_89)[2]))%>%
+              mutate(year=c(1987,1988,1989))%>%
+            pivot_longer(cols=c("among_lower","among_upper",
+                                "within_lower","within_upper"),
+                 names_to=c("effect","cat"),names_sep="_",values_to="value")%>%
+              pivot_wider(names_from="cat",values_from="value"))%>%
+  mutate(year=factor(year))%>%
+  ggplot(aes(x=year,y=mean,ymin=lower,ymax=upper,color=effect))+
+  geom_errorbar(linewidth=0.5,width=0.2,position=position_dodge(0.3))+
+  geom_point(size=2,position=position_dodge(0.3))+
+  my_theme()+xlab("Year")+ylab("Proportion of variance")
+ggsave(file="output/figures/Appendix3.tiff", width=4, height=3.5)
+```
+
+# Appendix 4: Differences in moments among years
+
+```{r}
+Anova(lm(avFD_v~year,data_ids))
+Anova(lm(var~year,data_ids))
+Anova(lm(skew~year,data_ids))
+Anova(lm(kurt~year,data_ids))
+```
+
+```{r}
+letters_mean<-as.data.frame.list(
+  multcompLetters4(aov(avFD_v~year,data_ids),
+                   TukeyHSD(aov(avFD_v~year,data_ids)))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_var<-as.data.frame.list(
+  multcompLetters4(aov(var~year,data_ids),
+                   TukeyHSD(aov(var~year,data_ids)))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_skew<-as.data.frame.list(
+  multcompLetters4(aov(skew~year,data_ids),
+                   TukeyHSD(aov(skew~year,data_ids)))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_kurt<-as.data.frame.list(
+  multcompLetters4(aov(kurt~year,data_ids),
+                   TukeyHSD(aov(kurt~year,data_ids)))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+```
+
+```{r}
+# diffs_moments_years_SI<-ggplot(
+#   rbind(
+#     left_join(data.frame(ggpredict(lm(avFD_v~year,data_ids))),
+#               letters_mean,join_by(year.x==year))%>%
+#       mutate(moment="Mean"),
+#     left_join(data.frame(ggpredict(lm(var~year,data_ids))),
+#               letters_var,join_by(year.x==year))%>%
+#       mutate(moment="Variance"),
+#     left_join(data.frame(ggpredict(lm(skew~year,data_ids))),
+#               letters_skew,join_by(year.x==year))%>%
+#       mutate(moment="Skewness"),
+#     left_join(data.frame(ggpredict(lm(kurt~year,data_ids))),
+#               letters_kurt,join_by(year.x==year))%>%
+#       mutate(moment="Kurtosis")
+#   )%>%
+#     mutate(moment=factor(moment,
+#                          levels=c("Mean","Variance","Skewness","Kurtosis"))),
+#        aes(x=year.x,y=year.predicted,
+#            ymin=year.conf.low,ymax=year.conf.high))+
+#   geom_errorbar(width=.2)+geom_point()+
+#   geom_text(aes(label=Letters,y=year.conf.high),
+#             vjust=-0.2,family="serif")+
+#   facet_wrap(~moment,scales="free",nrow=1)+
+#   my_theme()+xlab(NULL)+ylab("Value of the moment")
+# diffs_moments_years_SI
+# ggsave(diffs_moments_years_SI,
+#        filename="output/figures/diffs_moments_years_SI.tiff",
+#        device="tiff",width=26,height=8,units="cm",dpi=300,compression="lzw")
+```
+
+```{r}
+Appendix4<-grid.arrange(
+  ggerrorplot(data_ids,x="year",y="avFD_v",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Mean")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(avFD_v)+(sd(avFD_v)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.1,label=letters_mean$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("A)")+  
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="var",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Variance")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(var,na.rm=T)+
+                            (sd(var,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.005,label=letters_var$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("B)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="skew",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Skewness")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(skew,na.rm=T)+
+                            (sd(skew,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.007,label=letters_skew$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("C)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="kurt",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Kurtosis")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(kurt,na.rm=T)+
+                            (sd(kurt,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.009,label=letters_kurt$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("D)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ncol=2)
+Appendix4
+ggsave(Appendix4,
+       filename="output/figures/Appendix4.tiff",
+       device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
+```
+
+# Appendix 5: Correlations of the 4 moments using all data
+
+```{r}
+data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+  rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+  ungroup()%>%
+  select_if(is.numeric) %>% 
+  cor(use="pairwise.complete.obs") %>%
+  ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+  theme(legend.position="none")+my_theme()+xlab(NULL)+ylab(NULL)
+ggsave(filename="output/figures/Appendix5.tiff",
+       device="tiff",width=10,height=8,units="cm",dpi=300,compression="lzw")
+```
+
+# Appendix 6: Correlations of the 4 moments for each year
+
+```{r}
+Appendix6<-grid.arrange(
+  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+    filter(year==1987) %>%
+    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+    select_if(is.numeric) %>% 
+    cor(use="pairwise.complete.obs") %>%
+    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+    ggtitle("1987")+theme(legend.position="none")+
+    my_theme()+xlab(NULL)+ylab(NULL),
+  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+    filter(year==1988) %>%
+    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+    select_if(is.numeric) %>% 
+    cor(use="pairwise.complete.obs") %>%
+    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+    ggtitle("1988")+theme(legend.position="none")+
+    my_theme()+xlab(NULL)+ylab(NULL),
+  data_ids%>%dplyr::select(year,avFD_v,var,skew,kurt) %>%
+    filter(year==1989) %>%
+    rename(Mean=avFD_v,Variance=var,Skewness=skew,Kurtosis=kurt)%>%
+    select_if(is.numeric) %>% 
+    cor(use="pairwise.complete.obs") %>%
+    ggcorrplot(method = "square", type = "lower", hc.order = F, lab = T)+
+    ggtitle("1989")+theme(legend.position="none")+
+    my_theme()+xlab(NULL)+ylab(NULL),
+  ncol=3)
+ggsave(Appendix6,filename="output/figures/Appendix6.tiff",
+       device="tiff",width=25,height=10,units="cm",dpi=300,compression="lzw")
+```
+
+OK? Check VIFs of each model.
+
+# Appendix 7: Differences in fitness components among years
+
+```{r}
+# Fruit set
+Anova(glm(cbind(fr_set=n_mat_intact_fr,
+                fr_no_set=n_fl-n_mat_intact_fr)~year,data_ids,family="binomial")) 
+Anova(lm(asin(sqrt(fr_set))~year,data_ids)) 
+# Fruit initiation
+Anova(glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~year,
+          data_ids,family="binomial")) 
+Anova(lm(asin(sqrt(fr_init))~year,data_ids)) 
+# Fruit maturation
+Anova(glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~year,
+          data_ids,family="binomial"))
+Anova(lm(asin(sqrt(fr_mat))~year,data_ids)) 
+# Proportion of seeds escaping predation
+Anova(glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                pr_seeds=round(n_preyed_seed))~year,
+          data_ids,family="binomial"))
+Anova(lm(asin(sqrt(1-prop_seed_preyed))~year,data_ids)) 
+# Fitness
+Anova(lm(fitness~year,data_ids))
+```
+
+```{r}
+# Using lms with arcsine transformation for proportions
+letters_fr_set<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(fr_set))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+letters_fr_init<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(fr_init))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+letters_fr_mat<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(fr_mat))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+letters_seeds_escpred<-data.frame(
+  Letters=cld(glht(lm(asin(sqrt(1-prop_seed_preyed))~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+# Using lms with square root transformation for fitness
+letters_sel<-data.frame(
+  Letters=cld(glht(lm(sqrt(fitness)~year,data_ids),
+                   linfc= mcp(year="Tukey")))$mcletters$Letters)%>%
+  rownames_to_column(var="year")
+```
+
+```{r}
+# diffs_vars_years_SI<-ggplot(
+#   rbind(
+#   left_join(data.frame(ggpredict(
+#     glm(cbind(fr_set=n_mat_intact_fr,fr_no_set=n_fl-n_mat_intact_fr)~year,
+#         data_ids,family="binomial"))),
+#     letters_fr_set,join_by(year.x==year))%>%
+#     mutate(var="Fruit set"),
+#   left_join(data.frame(ggpredict(
+#     glm(cbind(fr_init=n_init_fr,fr_no_init=n_fl-n_init_fr)~year,
+#         data_ids,family="binomial"))),
+#     letters_fr_init,join_by(year.x==year))%>%
+#     mutate(var="Fruit initiation"),
+#   left_join(data.frame(ggpredict(
+#     glm(cbind(fr_mat=n_mat_intact_fr,fr_no_mat=n_init_fr-n_mat_intact_fr)~year,
+#         data_ids,family="binomial"))),
+#     letters_fr_mat,join_by(year.x==year))%>%
+#     mutate(var="Fruit maturation"),
+#   left_join(data.frame(ggpredict(
+#     glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+#               pr_seeds=round(n_preyed_seed))~year,
+#         data_ids,family="binomial"))),
+#     letters_seeds_escpred,join_by(year.x==year))%>%
+#     mutate(var="Proportion of seeds\nescaping predation"),
+#   left_join(data.frame(ggpredict(lm(fitness~year,data_ids))),
+#             letters_sel,join_by(year.x==year))%>%
+#     mutate(var="Fitness")
+# )%>%
+#   mutate(var=factor(var,
+#                     levels=c("Fruit set",
+#                              "Fruit initiation",
+#                              "Fruit maturation",
+#                              "Proportion of seeds\nescaping predation",
+#                              "Fitness"))),
+#   aes(x=year.x,y=year.predicted,
+#       ymin=year.conf.low,ymax=year.conf.high))+
+#   geom_errorbar(width=.2)+geom_point()+
+#   geom_text(aes(label=Letters,y=year.conf.high),
+#             vjust=-0.2,family="serif")+
+#   facet_wrap(~var,scales="free",nrow=2)+
+#   my_theme()+xlab(NULL)+ylab("Value of the variable")
+# diffs_vars_years_SI
+# ggsave(diffs_vars_years_SI,
+#        filename="output/figures/diffs_vars_years_SI.tiff",
+#        device="tiff",width=26,height=18,units="cm",dpi=300,compression="lzw")
+```
+
+```{r}
+data_ids%>%group_by(year)%>%
+  summarise(mean_fr_set=mean(fr_set),
+            mean_fr_init=mean(fr_init),
+            mean_fr_mat=mean(fr_mat,na.rm=T),
+            mean_prop_seed_preyed=mean(prop_seed_preyed,na.rm=T),
+            mean_fitness=mean(fitness))
+```
+
+Why means are different in the plots???
+
+```{r}
+ggerrorplot(data_ids,x="year",y="fr_set",combine=F,size=0.5,
+            desc_stat="mean_se",error.plot = "errorbar",add = "mean",
+            xlab="Year")+my_theme()+ylab("Mean")
+plot(ggpredict(glm(cbind(fr_set=n_mat_intact_fr,
+                fr_no_set=n_fl-n_mat_intact_fr)~year,data_ids,
+                family="binomial")))
+data_ids$fr_set_asin<-with(data_ids,asin(sqrt(fr_set)))
+plot(ggpredict(lm(fr_set_asin~year,data_ids)))
+```
+
+```{r}
+data_ids$prop_seeds_escpred<-1-data_ids$prop_seed_preyed
+```
+
+```{r}
+Appendix7<-grid.arrange(
+  ggerrorplot(data_ids,x="year",y="fr_init",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Fruit initiation")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(fr_init)+(sd(fr_init)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.001,label=letters_fr_init$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("A)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="fr_mat",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Fruit maturation")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(fr_mat,na.rm=T)+
+                            (sd(fr_mat,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.002,label=letters_fr_mat$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("B)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="prop_seeds_escpred",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+
+    ylab("Propotion of seeds\nescaping predation")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(prop_seeds_escpred,na.rm=T)+
+                            (sd(prop_seeds_escpred,na.rm=T)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.008,label=letters_seeds_escpred$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("C)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ggerrorplot(data_ids,x="year",y="fitness",combine=F,size=0.5,
+              desc_stat="mean_se",error.plot = "errorbar",add = "none",
+              xlab="Year")+my_theme()+ylab("Fitness")+
+    stat_summary(geom="point",size=2,fun.y="mean")+
+    geom_text(data=data_ids%>%group_by(year)%>%
+                summarize(mean_se=mean(fitness)+(sd(fitness)/sqrt(n()))),
+            aes(x=year,y=mean_se+0.008,label=letters_sel$Letters),
+            vjust=-0.2,family="serif")+
+    ggtitle("D)")+
+    theme(plot.title=element_text(face="plain",size=16,hjust=-0.15)),
+  ncol=2)
+Appendix7
+ggsave(Appendix7,
+       filename="output/figures/Appendix7.tiff",
+       device="tiff",width=20,height=20,units="cm",dpi=300,compression="lzw")
+```
+
+# Q2: Phenotypic selection on within-individual variation
+
+Phenotypic selection models with n_fl
+
+n_fl --> log --> std
+
+```{r}
+data_ids<-data_ids%>%
+  mutate(n_fl_log=log(n_fl))%>%
+  group_by(year)%>%
+  mutate(n_fl_log_std=as.vector(scale(n_fl_log)))
+```
+
+Using (within-year) standardized traits.
+
+## Appendix 8: Global models phenotypic selection with n_fl
+
+### Linear effects
+
+Including only linear effects and interactions with year.
+
+```{r}
+sel_nfl_linear<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+n_fl_log_std+
+              avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
+              # Not including main effect of yr cause fitness rel within yrs
+              subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                       !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_nfl_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Selection, linear effects"))
+Anova(sel_nfl_linear)
+check_collinearity(lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+n_fl_std,
+              subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                       !is.na(skew_std)&!is.na(kurt_std))))
+```
+
+According to Anova, no differences among years.
+
+#### BCA intervals
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[2]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[3]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[4]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[5]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[6]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std:year1988
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[7]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std:year1989
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[8]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std:year1988
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[9]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std:year1989
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[10]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std:year1988
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[11]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std:year1989
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[12]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std:year1988
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[13]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std:year1989
+slp <- function(sel_nfl_linear) coef(sel_nfl_linear)[14]
+b <- car::Boot(sel_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_linear <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,], n_fl_log_std_ci[1,],
+        avFD_std_year1988_ci[1,],avFD_std_year1989_ci[1,],var_std_year1988_ci[1,],
+        var_std_year1989_ci[1,],skew_std_year1988_ci[1,],skew_std_year1989_ci[1,],
+        kurt_std_year1988_ci[1,],kurt_std_year1989_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,], n_fl_log_std_ci[2,],
+        avFD_std_year1988_ci[2,],avFD_std_year1989_ci[2,],var_std_year1988_ci[2,],
+        var_std_year1989_ci[2,],skew_std_year1988_ci[2,],skew_std_year1989_ci[2,],
+        kurt_std_year1988_ci[2,],kurt_std_year1989_ci[2,])
+)
+colnames(BCIs_sel_nfl_linear)<-c("lower","upper")
+rownames(BCIs_sel_nfl_linear) <- c("avFD_std","var_std","skew_std","kurt_std","n_fl_log_std",
+                                "avFD_std_year1988","avFD_std_year1988","var_std_year1988",
+                                "var_std_year1989","skew_std_year1988","skew_std_year1989",
+                                "kurt_std_year1988","kurt_std_year1989")
+save(BCIs_sel_nfl_linear,file="output/BCIs_sel_nfl_linear.RData")
+```
+
+```{r}
+BCIs_sel_nfl_linear
+```
+
+Similar to significances with Anova
+
+### Non-linear effects
+
+```{r}
+sel_nfl_nonlinear<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
+                        n_fl_log_std+
+                        avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
+                        I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
+                        I(n_fl_log_std^2)+
+                        I(avFD_std^2):year+I(var_std^2):year+
+                        I(skew_std^2):year+I(kurt_std^2):year,
+                      subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_nfl_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Selection, non-linear effects"))
+Anova(sel_nfl_nonlinear)
+plot(check_collinearity(sel_nfl_nonlinear))
+```
+
+Only the quadratic effect of flower number is significant.
+
+#### BCA intervals
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[7]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[8]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[9]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[10]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std2
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[11]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2:year1988
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[20]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2:year1989
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[21]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2:year1988
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[22]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2:year1989
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[23]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2:year1988
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[24]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2:year1989
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[25]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std22:year1988
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[26]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2:year1989
+slp <- function(sel_nfl_nonlinear) coef(sel_nfl_nonlinear)[27]
+b <- car::Boot(sel_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_nonlinear <- cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,],
+        n_fl_log_std2_ci[1,],
+        avFD_std2_year1988_ci[1,],avFD_std2_year1989_ci[1,],
+        var_std2_year1988_ci[1,],var_std2_year1989_ci[1,],
+        skew_std2_year1988_ci[1,],skew_std2_year1989_ci[1,],
+        kurt_std2_year1988_ci[1,],kurt_std2_year1989_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,],
+        n_fl_log_std2_ci[2,],
+        avFD_std2_year1988_ci[2,],avFD_std2_year1989_ci[2,],
+        var_std2_year1988_ci[2,],var_std2_year1989_ci[2,],
+        skew_std2_year1988_ci[2,],skew_std2_year1989_ci[2,],
+        kurt_std2_year1988_ci[2,],kurt_std2_year1989_ci[2,])
+)
+colnames(BCIs_sel_nfl_nonlinear)<-c("lower","upper")
+rownames(BCIs_sel_nfl_nonlinear)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2","n_fl_log_std2",
+                                    "avFD_std2_year1988","avFD_std2_year1989",
+                                    "var_std2_year1988","var_std2_year1989",
+                                    "skew_std2_year1988","skew_std2_year1989",
+                                    "kurt_std2_year1988","kurt_std2_year1989")
+save(BCIs_sel_nfl_nonlinear,file="output/BCIs_sel_nfl_nonlinear.RData")
+```
+
+```{r}
+BCIs_sel_nfl_nonlinear
+```
+
+
+## Table 1: Yearly models
+
+### Linear effects
+
+```{r}
+sel_nfl_linear_87<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
+                        n_fl_log_std,
+                      subset(data_ids,year==1987&
+                               !is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+sel_nfl_linear_88<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
+                        n_fl_log_std,
+                      subset(data_ids,year==1988&
+                               !is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+sel_nfl_linear_89<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
+                        n_fl_log_std,
+                      subset(data_ids,year==1989&
+                               !is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_nfl_linear_87,sel_nfl_linear_88,sel_nfl_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Selection, linear effects")
+check_collinearity(sel_nfl_linear_87)
+check_collinearity(sel_nfl_linear_88)
+check_collinearity(sel_nfl_linear_89)
+Anova(sel_nfl_linear_87)
+Anova(sel_nfl_linear_88)
+Anova(sel_nfl_linear_89)
+```
+
+#### BCA intervals
+
+##### 1987
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_nfl_linear_87) coef(sel_nfl_linear_87)[2]
+b <- car::Boot(sel_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_nfl_linear_87) coef(sel_nfl_linear_87)[3]
+b <- car::Boot(sel_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_nfl_linear_87) coef(sel_nfl_linear_87)[4]
+b <- car::Boot(sel_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_nfl_linear_87) coef(sel_nfl_linear_87)[5]
+b <- car::Boot(sel_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std
+slp <- function(sel_nfl_linear_87) coef(sel_nfl_linear_87)[6]
+b <- car::Boot(sel_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_linear_87 <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,],
+        n_fl_log_std_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,],
+        n_fl_log_std_ci[2,])
+)
+colnames(BCIs_sel_nfl_linear_87)<-c("lower","upper")
+rownames(BCIs_sel_nfl_linear_87)<-c("avFD_std","var_std","skew_std","kurt_std",
+                                    "n_fl_log_std")
+save(BCIs_sel_nfl_linear_87,file="output/BCIs_sel_nfl_linear_87.RData")
+```
+
+```{r}
+BCIs_sel_nfl_linear_87
+```
+
+##### 1988
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_nfl_linear_88) coef(sel_nfl_linear_88)[2]
+b <- car::Boot(sel_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_nfl_linear_88) coef(sel_nfl_linear_88)[3]
+b <- car::Boot(sel_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_nfl_linear_88) coef(sel_nfl_linear_88)[4]
+b <- car::Boot(sel_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_nfl_linear_88) coef(sel_nfl_linear_88)[5]
+b <- car::Boot(sel_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std
+slp <- function(sel_nfl_linear_88) coef(sel_nfl_linear_88)[6]
+b <- car::Boot(sel_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_linear_88 <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,],
+        n_fl_log_std_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,],
+        n_fl_log_std_ci[2,])
+)
+colnames(BCIs_sel_nfl_linear_88)<-c("lower","upper")
+rownames(BCIs_sel_nfl_linear_88)<-c("avFD_std","var_std","skew_std","kurt_std",
+                                    "n_fl_log_std")
+save(BCIs_sel_nfl_linear_88,file="output/BCIs_sel_nfl_linear_88.RData")
+```
+
+```{r}
+BCIs_sel_nfl_linear_88
+```
+
+##### 1989
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_nfl_linear_89) coef(sel_nfl_linear_89)[2]
+b <- car::Boot(sel_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_nfl_linear_89) coef(sel_nfl_linear_89)[3]
+b <- car::Boot(sel_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_nfl_linear_89) coef(sel_nfl_linear_89)[4]
+b <- car::Boot(sel_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_nfl_linear_89) coef(sel_nfl_linear_89)[5]
+b <- car::Boot(sel_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std
+slp <- function(sel_nfl_linear_89) coef(sel_nfl_linear_89)[6]
+b <- car::Boot(sel_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_linear_89 <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,],
+        n_fl_log_std_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,],
+        n_fl_log_std_ci[2,])
+)
+colnames(BCIs_sel_nfl_linear_89)<-c("lower","upper")
+rownames(BCIs_sel_nfl_linear_89)<-c("avFD_std","var_std","skew_std","kurt_std",
+                                    "n_fl_log_std")
+save(BCIs_sel_nfl_linear_89,file="output/BCIs_sel_nfl_linear_89.RData")
+```
+
+```{r}
+BCIs_sel_nfl_linear_89
+```
+
+### Non-linear effects
+
+```{r}
+sel_nfl_nonlinear_87<-lm(fitness_rel~avFD_std+var_std+
+                           skew_std+kurt_std+n_fl_log_std+
+                           I(avFD_std^2)+I(var_std^2)+
+                           I(skew_std^2)+I(kurt_std^2)+I(n_fl_log_std^2),
+                         subset(data_ids,year==1987&
+                                  !is.na(avFD_std)&!is.na(var_std)&
+                                  !is.na(skew_std)&!is.na(kurt_std)))
+sel_nfl_nonlinear_88<-lm(fitness_rel~avFD_std+var_std+
+                           skew_std+kurt_std+n_fl_log_std+
+                           I(avFD_std^2)+I(var_std^2)+
+                           I(skew_std^2)+I(kurt_std^2)+I(n_fl_log_std^2),
+                         subset(data_ids,year==1988&
+                                  !is.na(avFD_std)&!is.na(var_std)&
+                                  !is.na(skew_std)&!is.na(kurt_std)))
+sel_nfl_nonlinear_89<-lm(fitness_rel~avFD_std+var_std+
+                           skew_std+kurt_std+n_fl_log_std+
+                           I(avFD_std^2)+I(var_std^2)+
+                           I(skew_std^2)+I(kurt_std^2)+I(n_fl_log_std^2),
+                           subset(data_ids,year==1989&
+                                    !is.na(avFD_std)&!is.na(var_std)&
+                                    !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_nfl_nonlinear_87,sel_nfl_nonlinear_88,sel_nfl_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Selection, non-linear effects")
+Anova(sel_nfl_nonlinear_87)
+Anova(sel_nfl_nonlinear_88)
+Anova(sel_nfl_nonlinear_89)
+```
+
+#### BCA intervals
+
+##### 1987
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nfl_nonlinear_87) coef(sel_nfl_nonlinear_87)[7]
+b <- car::Boot(sel_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nfl_nonlinear_87) coef(sel_nfl_nonlinear_87)[8]
+b <- car::Boot(sel_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nfl_nonlinear_87) coef(sel_nfl_nonlinear_87)[9]
+b <- car::Boot(sel_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nfl_nonlinear_87) coef(sel_nfl_nonlinear_87)[10]
+b <- car::Boot(sel_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std2
+slp <- function(sel_nfl_nonlinear_87) coef(sel_nfl_nonlinear_87)[11]
+b <- car::Boot(sel_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_nonlinear_87<-cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,],
+        n_fl_log_std2_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,],
+        n_fl_log_std2_ci[2,])
+)
+colnames(BCIs_sel_nfl_nonlinear_87)<-c("lower","upper")
+rownames(BCIs_sel_nfl_nonlinear_87)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2","n_fl_log_std2")
+save(BCIs_sel_nfl_nonlinear_87,file="output/BCIs_sel_nfl_nonlinear_87.RData")
+```
+
+```{r}
+BCIs_sel_nfl_nonlinear_87
+```
+
+##### 1988
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nfl_nonlinear_88) coef(sel_nfl_nonlinear_88)[7]
+b <- car::Boot(sel_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nfl_nonlinear_88) coef(sel_nfl_nonlinear_88)[8]
+b <- car::Boot(sel_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nfl_nonlinear_88) coef(sel_nfl_nonlinear_88)[9]
+b <- car::Boot(sel_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nfl_nonlinear_88) coef(sel_nfl_nonlinear_88)[10]
+b <- car::Boot(sel_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std2
+slp <- function(sel_nfl_nonlinear_88) coef(sel_nfl_nonlinear_88)[11]
+b <- car::Boot(sel_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_nonlinear_88<-cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,],
+        n_fl_log_std2_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,],
+        n_fl_log_std2_ci[2,])
+)
+colnames(BCIs_sel_nfl_nonlinear_88)<-c("lower","upper")
+rownames(BCIs_sel_nfl_nonlinear_88)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2","n_fl_log_std2")
+save(BCIs_sel_nfl_nonlinear_88,file="output/BCIs_sel_nfl_nonlinear_88.RData")
+```
+
+```{r}
+BCIs_sel_nfl_nonlinear_88
+```
+
+##### 1989
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nfl_nonlinear_89) coef(sel_nfl_nonlinear_89)[7]
+b <- car::Boot(sel_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nfl_nonlinear_89) coef(sel_nfl_nonlinear_89)[8]
+b <- car::Boot(sel_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nfl_nonlinear_89) coef(sel_nfl_nonlinear_89)[9]
+b <- car::Boot(sel_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nfl_nonlinear_89) coef(sel_nfl_nonlinear_89)[10]
+b <- car::Boot(sel_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log_std2
+slp <- function(sel_nfl_nonlinear_89) coef(sel_nfl_nonlinear_89)[11]
+b <- car::Boot(sel_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nfl_nonlinear_89<-cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,],
+        n_fl_log_std2_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,],
+        n_fl_log_std2_ci[2,])
+)
+colnames(BCIs_sel_nfl_nonlinear_89)<-c("lower","upper")
+rownames(BCIs_sel_nfl_nonlinear_89)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2","n_fl_log_std2")
+save(BCIs_sel_nfl_nonlinear_89,file="output/BCIs_sel_nfl_nonlinear_89.RData")
+```
+
+```{r}
+BCIs_sel_nfl_nonlinear_89
+```
+
+## Figure 3: Effects on relative iftness
+
+```{r}
+coefs_sel_nfl_linear<-rbind(
+  tidy(sel_nfl_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
+  tidy(sel_nfl_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
+  tidy(sel_nfl_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=ifelse(p.value>0.05,0,1),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=term,
+         type=as.factor("linear"))%>%
+  mutate(signif=factor(ifelse(row_number()==3,1,signif)))
+# Change signif for skewness cause it is signif according to BCA intervals
+coefs_sel_nfl_nonlinear<-rbind(
+  tidy(sel_nfl_nonlinear_87)[7:10,]%>%mutate(year=as.factor("1987")),
+  tidy(sel_nfl_nonlinear_88)[7:10,]%>%mutate(year=as.factor("1988")),
+  tidy(sel_nfl_nonlinear_89)[7:10,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
+         type=as.factor("nonlinear"))
+```
+
+```{r}
+prediction_sel_nfl_linear<-rbind(rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(sel_nfl_linear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_linear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_linear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="sel_nfl",type="linear")%>%
+  left_join(coefs_sel_nfl_linear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+
+prediction_sel_nfl_nonlinear<-rbind(rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(sel_nfl_nonlinear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(sel_nfl_nonlinear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(sel_nfl_nonlinear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="sel_nfl",type="nonlinear")%>%
+  left_join(coefs_sel_nfl_nonlinear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+prediction_sel_nfl<-rbind(prediction_sel_nfl_linear,
+                                 prediction_sel_nfl_nonlinear)%>%
+  mutate(predictor=factor(predictor,
+                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
+```
+
+```{r}
+predictor.labs<-c("Mean","Variance","Skewness","Kurtosis")
+names(predictor.labs)<-c("avFD_std","var_std","skew_std","kurt_std")
+```
+
+```{r}
+fig3<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="avFD_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="avFD_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="var_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="var_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="skew_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="skew_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_sel_nfl%>%
+                  filter(predictor=="kurt_std")%>%
+                  filter(type=="linear"), # Showing only linear effects
+                # cause none of the non-linear are significant
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high),
+                alpha=0.3,fill="#CC0000")+
+    geom_line(data=prediction_sel_nfl%>%
+                filter(predictor=="kurt_std")%>%
+                filter(type=="linear"),
+              aes(x=x,y=predicted,linetype=signif),
+              linewidth=1,color="#CC0000")+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fitness_rel,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=fitness_rel),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dashed", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob("Relative fitness",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+)
+ggsave(file="output/figures/fig3.tiff", plot=fig3, width=8, height=8,dpi=300,
+       compression="lzw")
+```
+
+## Appendix 9: Global models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
+
+### Linear effects
+
+Including only linear effects and interactions with year.
+
+```{r}
+abs_nfl_linear<-lm(fitness~avFD+var+skew+kurt+n_fl_log+year+
+              avFD:year+var:year+skew:year+kurt:year,
+              # Including main effect of yr cause fitness is not rel within yrs
+              subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                       !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(abs_nfl_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Absolute fitness and traits, linear effects"))
+Anova(abs_nfl_linear)
+check_collinearity(lm(fitness~avFD+var+skew+kurt+n_fl_log,
+              subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                       !is.na(skew_std)&!is.na(kurt_std))))
+```
+
+#### BCA intervals
+
+```{r eval=FALSE, include=FALSE}
+# avFD
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[2]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[3]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[4]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[5]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[6]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# year1988
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[7]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# year1989
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[8]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD:year1988
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[9]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD:year1989
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[10]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var:year1988
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[11]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var:year1989
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[12]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew:year1988
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[13]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew:year1989
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[14]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt:year1988
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[15]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt:year1989
+slp <- function(abs_nfl_linear) coef(abs_nfl_linear)[16]
+b <- car::Boot(abs_nfl_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_linear <- cbind(
+  rbind(avFD_ci[1,],var_ci[1,], skew_ci[1,], kurt_ci[1,], n_fl_log_ci[1,],
+        year1988_ci[1,],year1989_ci[1,],
+        avFD_year1988_ci[1,],avFD_year1989_ci[1,],var_year1988_ci[1,],
+        var_year1989_ci[1,],skew_year1988_ci[1,],skew_year1989_ci[1,],
+        kurt_year1988_ci[1,],kurt_year1989_ci[1,]),
+  rbind(avFD_ci[2,],var_ci[2,], skew_ci[2,], kurt_ci[2,], n_fl_log_ci[2,],
+        year1988_ci[2,],year1989_ci[2,],
+        avFD_year1988_ci[2,],avFD_year1989_ci[2,],var_year1988_ci[2,],
+        var_year1989_ci[2,],skew_year1988_ci[2,],skew_year1989_ci[2,],
+        kurt_year1988_ci[2,],kurt_year1989_ci[2,])
+)
+colnames(BCIs_abs_nfl_linear)<-c("lower","upper")
+rownames(BCIs_abs_nfl_linear) <- c("avFD","var","skew","kurt","n_fl_log",
+                                   "year1988","year1989",
+                                   "avFD_year1988","avFD_year1989",
+                                   "var_year1988","var_year1989",
+                                   "skew_year1988","skew_year1989",
+                                   "kurt_year1988","kurt_year1989")
+save(BCIs_abs_nfl_linear,file="output/BCIs_abs_nfl_linear.RData")
+```
+
+```{r}
+BCIs_abs_nfl_linear
+```
+
+### Non-linear effects
+
+```{r}
+abs_nfl_nonlinear<-lm(fitness~avFD+var+skew+kurt+
+                        n_fl_log+year+
+                        avFD:year+var:year+skew:year+kurt:year+
+                        I(avFD^2)+I(var^2)+I(skew^2)+I(kurt^2)+
+                        I(n_fl_log^2)+
+                        I(avFD^2):year+I(var^2):year+
+                        I(skew^2):year+I(kurt^2):year,
+                      subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(abs_nfl_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Absolute fitness and traits, non-linear effects"))
+Anova(abs_nfl_nonlinear)
+```
+
+#### BCA intervals
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD2
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[9]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var2
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[10]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew2
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[11]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt2
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[12]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log2
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[13]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD2:year1988
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[22]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD2:year1989
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[23]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var2:year1988
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[24]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var2:year1989
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[25]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew2:year1988
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[26]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew2:year1989
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[27]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt2:year1988
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[28]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt2:year1989
+slp <- function(abs_nfl_nonlinear) coef(abs_nfl_nonlinear)[29]
+b <- car::Boot(abs_nfl_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_nonlinear <- cbind(
+  rbind(avFD2_ci[1,],var2_ci[1,], skew2_ci[1,], kurt2_ci[1,],
+        n_fl_log2_ci[1,],
+        avFD2_year1988_ci[1,],avFD2_year1989_ci[1,],
+        var2_year1988_ci[1,],var2_year1989_ci[1,],
+        skew2_year1988_ci[1,],skew2_year1989_ci[1,],
+        kurt2_year1988_ci[1,],kurt2_year1989_ci[1,]),
+  rbind(avFD2_ci[2,],var2_ci[2,], skew2_ci[2,], kurt2_ci[2,],
+        n_fl_log2_ci[2,],
+        avFD2_year1988_ci[2,],avFD2_year1989_ci[2,],
+        var2_year1988_ci[2,],var2_year1989_ci[2,],
+        skew2_year1988_ci[2,],skew2_year1989_ci[2,],
+        kurt2_year1988_ci[2,],kurt2_year1989_ci[2,])
+)
+colnames(BCIs_abs_nfl_nonlinear)<-c("lower","upper")
+rownames(BCIs_abs_nfl_nonlinear)<-c("avFD2","var2","skew2",
+                                    "kurt2","n_fl_log2",
+                                    "avFD2_year1988","avFD2_year1989",
+                                    "var2_year1988","var2_year1989",
+                                    "skew2_year1988","skew2_year1989",
+                                    "kurt2_year1988","kurt2_year1989")
+save(BCIs_abs_nfl_nonlinear,file="output/BCIs_abs_nfl_nonlinear.RData")
+```
+
+```{r}
+BCIs_abs_nfl_nonlinear
+```
+
+## Appendix 10: Yearly models ABSOLUTE FITNESS ~ ABSOLUTE TRAITS
+
+### Linear effects
+
+```{r}
+abs_nfl_linear_87<-lm(fitness~avFD+var+skew+kurt+
+                        n_fl_log,
+                      subset(data_ids,year==1987&
+                               !is.na(avFD)&!is.na(var)&
+                               !is.na(skew)&!is.na(kurt)))
+abs_nfl_linear_88<-lm(fitness_rel~avFD+var+skew+kurt+
+                        n_fl_log,
+                      subset(data_ids,year==1988&
+                               !is.na(avFD)&!is.na(var)&
+                               !is.na(skew)&!is.na(kurt)))
+abs_nfl_linear_89<-lm(fitness_rel~avFD+var+skew+kurt+
+                        n_fl_log,
+                      subset(data_ids,year==1989&
+                               !is.na(avFD)&!is.na(var)&
+                               !is.na(skew)&!is.na(kurt)))
+tab_model(abs_nfl_linear_87,abs_nfl_linear_88,abs_nfl_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Absolute fitness and traits, linear effects")
+```
+
+#### BCA intervals
+
+##### 1987
+
+```{r eval=FALSE, include=FALSE}
+# avFD
+slp <- function(abs_nfl_linear_87) coef(abs_nfl_linear_87)[2]
+b <- car::Boot(abs_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var
+slp <- function(abs_nfl_linear_87) coef(abs_nfl_linear_87)[3]
+b <- car::Boot(abs_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew
+slp <- function(abs_nfl_linear_87) coef(abs_nfl_linear_87)[4]
+b <- car::Boot(abs_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt
+slp <- function(abs_nfl_linear_87) coef(abs_nfl_linear_87)[5]
+b <- car::Boot(abs_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log
+slp <- function(abs_nfl_linear_87) coef(abs_nfl_linear_87)[6]
+b <- car::Boot(abs_nfl_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_linear_87 <- cbind(
+  rbind(avFD_ci[1,],var_ci[1,], skew_ci[1,], kurt_ci[1,],
+        n_fl_log_ci[1,]),
+  rbind(avFD_ci[2,],var_ci[2,], skew_ci[2,], kurt_ci[2,],
+        n_fl_log_ci[2,])
+)
+colnames(BCIs_abs_nfl_linear_87)<-c("lower","upper")
+rownames(BCIs_abs_nfl_linear_87)<-c("avFD","var","skew","kurt",
+                                    "n_fl_log")
+save(BCIs_abs_nfl_linear_87,file="output/BCIs_abs_nfl_linear_87.RData")
+```
+
+```{r}
+BCIs_abs_nfl_linear_87
+```
+
+##### 1988
+
+```{r eval=FALSE, include=FALSE}
+# avFD
+slp <- function(abs_nfl_linear_88) coef(abs_nfl_linear_88)[2]
+b <- car::Boot(abs_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var
+slp <- function(abs_nfl_linear_88) coef(abs_nfl_linear_88)[3]
+b <- car::Boot(abs_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew
+slp <- function(abs_nfl_linear_88) coef(abs_nfl_linear_88)[4]
+b <- car::Boot(abs_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt
+slp <- function(abs_nfl_linear_88) coef(abs_nfl_linear_88)[5]
+b <- car::Boot(abs_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log
+slp <- function(abs_nfl_linear_88) coef(abs_nfl_linear_88)[6]
+b <- car::Boot(abs_nfl_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_linear_88 <- cbind(
+  rbind(avFD_ci[1,],var_ci[1,], skew_ci[1,], kurt_ci[1,],
+        n_fl_log_ci[1,]),
+  rbind(avFD_ci[2,],var_ci[2,], skew_ci[2,], kurt_ci[2,],
+        n_fl_log_ci[2,])
+)
+colnames(BCIs_abs_nfl_linear_88)<-c("lower","upper")
+rownames(BCIs_abs_nfl_linear_88)<-c("avFD","var","skew","kurt",
+                                    "n_fl_log")
+save(BCIs_abs_nfl_linear_88,file="output/BCIs_abs_nfl_linear_88.RData")
+```
+
+```{r}
+BCIs_abs_nfl_linear_88
+```
+
+##### 1989
+
+```{r eval=FALSE, include=FALSE}
+# avFD
+slp <- function(abs_nfl_linear_89) coef(abs_nfl_linear_89)[2]
+b <- car::Boot(abs_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var
+slp <- function(abs_nfl_linear_89) coef(abs_nfl_linear_89)[3]
+b <- car::Boot(abs_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew
+slp <- function(abs_nfl_linear_89) coef(abs_nfl_linear_89)[4]
+b <- car::Boot(abs_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt
+slp <- function(abs_nfl_linear_89) coef(abs_nfl_linear_89)[5]
+b <- car::Boot(abs_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log
+slp <- function(abs_nfl_linear_89) coef(abs_nfl_linear_89)[6]
+b <- car::Boot(abs_nfl_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_linear_89 <- cbind(
+  rbind(avFD_ci[1,],var_ci[1,], skew_ci[1,], kurt_ci[1,],
+        n_fl_log_ci[1,]),
+  rbind(avFD_ci[2,],var_ci[2,], skew_ci[2,], kurt_ci[2,],
+        n_fl_log_ci[2,])
+)
+colnames(BCIs_abs_nfl_linear_89)<-c("lower","upper")
+rownames(BCIs_abs_nfl_linear_89)<-c("avFD","var","skew","kurt",
+                                    "n_fl_log")
+save(BCIs_abs_nfl_linear_89,file="output/BCIs_abs_nfl_linear_89.RData")
+```
+
+```{r}
+BCIs_abs_nfl_linear_89
+```
+
+### Non-linear effects
+
+```{r}
+abs_nfl_nonlinear_87<-lm(fitness~avFD+var+
+                           skew+kurt+n_fl_log+
+                           I(avFD^2)+I(var^2)+
+                           I(skew^2)+I(kurt^2)+I(n_fl_log^2),
+                         subset(data_ids,year==1987&
+                                  !is.na(avFD)&!is.na(var)&
+                                  !is.na(skew)&!is.na(kurt)))
+abs_nfl_nonlinear_88<-lm(fitness~avFD+var+
+                           skew+kurt+n_fl_log+
+                           I(avFD^2)+I(var^2)+
+                           I(skew^2)+I(kurt^2)+I(n_fl_log^2),
+                         subset(data_ids,year==1988&
+                                  !is.na(avFD)&!is.na(var)&
+                                  !is.na(skew)&!is.na(kurt)))
+abs_nfl_nonlinear_89<-lm(fitness~avFD+var+
+                           skew+kurt+n_fl_log+
+                           I(avFD^2)+I(var^2)+
+                           I(skew^2)+I(kurt^2)+I(n_fl_log^2),
+                           subset(data_ids,year==1989&
+                                    !is.na(avFD)&!is.na(var)&
+                                    !is.na(skew)&!is.na(kurt)))
+tab_model(abs_nfl_nonlinear_87,abs_nfl_nonlinear_88,abs_nfl_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Absolute fitness and traits, non-linear effects")
+```
+
+#### BCA intervals
+
+##### 1987
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD2
+slp <- function(abs_nfl_nonlinear_87) coef(abs_nfl_nonlinear_87)[7]
+b <- car::Boot(abs_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var2
+slp <- function(abs_nfl_nonlinear_87) coef(abs_nfl_nonlinear_87)[8]
+b <- car::Boot(abs_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew2
+slp <- function(abs_nfl_nonlinear_87) coef(abs_nfl_nonlinear_87)[9]
+b <- car::Boot(abs_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt2
+slp <- function(abs_nfl_nonlinear_87) coef(abs_nfl_nonlinear_87)[10]
+b <- car::Boot(abs_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log2
+slp <- function(abs_nfl_nonlinear_87) coef(abs_nfl_nonlinear_87)[11]
+b <- car::Boot(abs_nfl_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_nonlinear_87<-cbind(
+  rbind(avFD2_ci[1,],var2_ci[1,], skew2_ci[1,], kurt2_ci[1,],
+        n_fl_log2_ci[1,]),
+  rbind(avFD2_ci[2,],var2_ci[2,], skew2_ci[2,], kurt2_ci[2,],
+        n_fl_log2_ci[2,])
+)
+colnames(BCIs_abs_nfl_nonlinear_87)<-c("lower","upper")
+rownames(BCIs_abs_nfl_nonlinear_87)<-c("avFD2","var2","skew2",
+                                    "kurt2","n_fl_log2")
+save(BCIs_abs_nfl_nonlinear_87,file="output/BCIs_abs_nfl_nonlinear_87.RData")
+```
+
+```{r}
+BCIs_abs_nfl_nonlinear_87
+```
+
+##### 1988
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD2
+slp <- function(abs_nfl_nonlinear_88) coef(abs_nfl_nonlinear_88)[7]
+b <- car::Boot(abs_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var2
+slp <- function(abs_nfl_nonlinear_88) coef(abs_nfl_nonlinear_88)[8]
+b <- car::Boot(abs_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew2
+slp <- function(abs_nfl_nonlinear_88) coef(abs_nfl_nonlinear_88)[9]
+b <- car::Boot(abs_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt2
+slp <- function(abs_nfl_nonlinear_88) coef(abs_nfl_nonlinear_88)[10]
+b <- car::Boot(abs_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log2
+slp <- function(abs_nfl_nonlinear_88) coef(abs_nfl_nonlinear_88)[11]
+b <- car::Boot(abs_nfl_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_nonlinear_88<-cbind(
+  rbind(avFD2_ci[1,],var2_ci[1,], skew2_ci[1,], kurt2_ci[1,],
+        n_fl_log2_ci[1,]),
+  rbind(avFD2_ci[2,],var2_ci[2,], skew2_ci[2,], kurt2_ci[2,],
+        n_fl_log2_ci[2,])
+)
+colnames(BCIs_abs_nfl_nonlinear_88)<-c("lower","upper")
+rownames(BCIs_abs_nfl_nonlinear_88)<-c("avFD2","var2","skew2",
+                                    "kurt2","n_fl_log2")
+save(BCIs_abs_nfl_nonlinear_88,file="output/BCIs_abs_nfl_nonlinear_88.RData")
+```
+
+```{r}
+BCIs_abs_nfl_nonlinear_88
+```
+
+##### 1989
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD2
+slp <- function(abs_nfl_nonlinear_89) coef(abs_nfl_nonlinear_89)[7]
+b <- car::Boot(abs_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var2
+slp <- function(abs_nfl_nonlinear_89) coef(abs_nfl_nonlinear_89)[8]
+b <- car::Boot(abs_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew2
+slp <- function(abs_nfl_nonlinear_89) coef(abs_nfl_nonlinear_89)[9]
+b <- car::Boot(abs_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt2
+slp <- function(abs_nfl_nonlinear_89) coef(abs_nfl_nonlinear_89)[10]
+b <- car::Boot(abs_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# n_fl_log2
+slp <- function(abs_nfl_nonlinear_89) coef(abs_nfl_nonlinear_89)[11]
+b <- car::Boot(abs_nfl_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+n_fl_log2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_abs_nfl_nonlinear_89<-cbind(
+  rbind(avFD2_ci[1,],var2_ci[1,], skew2_ci[1,], kurt2_ci[1,],
+        n_fl_log2_ci[1,]),
+  rbind(avFD2_ci[2,],var2_ci[2,], skew2_ci[2,], kurt2_ci[2,],
+        n_fl_log2_ci[2,])
+)
+colnames(BCIs_abs_nfl_nonlinear_89)<-c("lower","upper")
+rownames(BCIs_abs_nfl_nonlinear_89)<-c("avFD2","var2","skew2",
+                                    "kurt2","n_fl_log2")
+save(BCIs_abs_nfl_nonlinear_89,file="output/BCIs_abs_nfl_nonlinear_89.RData")
+```
+
+```{r}
+BCIs_abs_nfl_nonlinear_89
+```
+
+## Appendix 11: Global models without n_fl
+
+### Linear effects
+
+Including only linear effects and interactions with year.
+
+```{r}
+sel_linear<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
+              avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
+              # Not including main effect of yr cause fitness rel within yrs
+              subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                       !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Selection, linear effects, without n_fl"))
+Anova(sel_linear)
+check_collinearity(lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std,
+              subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                       !is.na(skew_std)&!is.na(kurt_std))))
+```
+
+#### BCA intervals
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_linear) coef(sel_linear)[2]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_linear) coef(sel_linear)[3]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_linear) coef(sel_linear)[4]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_linear) coef(sel_linear)[5]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std:year1988
+slp <- function(sel_linear) coef(sel_linear)[6]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std:year1989
+slp <- function(sel_linear) coef(sel_linear)[7]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std:year1988
+slp <- function(sel_linear) coef(sel_linear)[8]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std:year1989
+slp <- function(sel_linear) coef(sel_linear)[9]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std:year1988
+slp <- function(sel_linear) coef(sel_linear)[10]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std:year1989
+slp <- function(sel_linear) coef(sel_linear)[11]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std:year1988
+slp <- function(sel_linear) coef(sel_linear)[12]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std:year1989
+slp <- function(sel_linear) coef(sel_linear)[13]
+b <- car::Boot(sel_linear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_linear <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,],
+        avFD_std_year1988_ci[1,],avFD_std_year1989_ci[1,],var_std_year1988_ci[1,],
+        var_std_year1989_ci[1,],skew_std_year1988_ci[1,],skew_std_year1989_ci[1,],
+        kurt_std_year1988_ci[1,],kurt_std_year1989_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,],
+        avFD_std_year1988_ci[2,],avFD_std_year1989_ci[2,],var_std_year1988_ci[2,],
+        var_std_year1989_ci[2,],skew_std_year1988_ci[2,],skew_std_year1989_ci[2,],
+        kurt_std_year1988_ci[2,],kurt_std_year1989_ci[2,])
+)
+colnames(BCIs_sel_linear)<-c("lower","upper")
+rownames(BCIs_sel_linear) <- c("avFD_std","var_std","skew_std","kurt_std",
+                                "avFD_std_year1988","avFD_std_year1988","var_std_year1988",
+                                "var_std_year1989","skew_std_year1988","skew_std_year1989",
+                                "kurt_std_year1988","kurt_std_year1989")
+save(BCIs_sel_linear,file="output/BCIs_sel_linear.RData")
+```
+
+```{r}
+BCIs_sel_linear
+```
+
+### Non-linear effects
+
+```{r}
+sel_nonlinear<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std+
+                    avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
+                    I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+ 
+                    I(avFD_std^2):year+I(var_std^2):year+
+                    I(skew_std^2):year+I(kurt_std^2):year,
+                  subset(data_ids,!is.na(avFD_std)&!is.na(var_std)&
+                           !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Selection, non-linear effects, without n_fl"))
+Anova(sel_nonlinear)
+plot(check_collinearity(sel_nonlinear))
+```
+
+#### BCA intervals
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[6]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[7]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[8]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[9]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2:year1988
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[18]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2:year1989
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[19]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2:year1988
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[20]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2:year1989
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[21]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2:year1988
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[22]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2:year1989
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[23]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std22:year1988
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[24]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_year1988_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2:year1989
+slp <- function(sel_nonlinear) coef(sel_nonlinear)[25]
+b <- car::Boot(sel_nonlinear,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_year1989_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nonlinear <- cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,],
+        avFD_std2_year1988_ci[1,],avFD_std2_year1989_ci[1,],
+        var_std2_year1988_ci[1,],var_std2_year1989_ci[1,],
+        skew_std2_year1988_ci[1,],skew_std2_year1989_ci[1,],
+        kurt_std2_year1988_ci[1,],kurt_std2_year1989_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,],
+        avFD_std2_year1988_ci[2,],avFD_std2_year1989_ci[2,],
+        var_std2_year1988_ci[2,],var_std2_year1989_ci[2,],
+        skew_std2_year1988_ci[2,],skew_std2_year1989_ci[2,],
+        kurt_std2_year1988_ci[2,],kurt_std2_year1989_ci[2,])
+)
+colnames(BCIs_sel_nonlinear)<-c("lower","upper")
+rownames(BCIs_sel_nonlinear)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2",
+                                    "avFD_std2_year1988","avFD_std2_year1989",
+                                    "var_std2_year1988","var_std2_year1989",
+                                    "skew_std2_year1988","skew_std2_year1989",
+                                    "kurt_std2_year1988","kurt_std2_year1989")
+save(BCIs_sel_nonlinear,file="output/BCIs_sel_nonlinear.RData")
+```
+
+```{r}
+BCIs_sel_nonlinear
+```
+
+## Yearly models without n_fl (not used)
+
+### Linear effects
+
+```{r}
+sel_linear_87<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std,
+                      subset(data_ids,year==1987&
+                               !is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+sel_linear_88<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std,
+                      subset(data_ids,year==1988&
+                               !is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+sel_linear_89<-lm(fitness_rel~avFD_std+var_std+skew_std+kurt_std,
+                      subset(data_ids,year==1989&
+                               !is.na(avFD_std)&!is.na(var_std)&
+                               !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_linear_87,sel_linear_88,sel_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Selection, linear effects, without n_fl")
+check_collinearity(sel_linear_87)
+check_collinearity(sel_linear_88)
+check_collinearity(sel_linear_89)
+Anova(sel_linear_87)
+Anova(sel_linear_88)
+Anova(sel_linear_89)
+```
+
+#### BCA intervals
+
+##### 1987
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_linear_87) coef(sel_linear_87)[2]
+b <- car::Boot(sel_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_linear_87) coef(sel_linear_87)[3]
+b <- car::Boot(sel_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_linear_87) coef(sel_linear_87)[4]
+b <- car::Boot(sel_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_linear_87) coef(sel_linear_87)[5]
+b <- car::Boot(sel_linear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_linear_87 <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,])
+)
+colnames(BCIs_sel_linear_87)<-c("lower","upper")
+rownames(BCIs_sel_linear_87)<-c("avFD_std","var_std","skew_std","kurt_std")
+save(BCIs_sel_linear_87,file="output/BCIs_sel_linear_87.RData")
+```
+
+```{r}
+BCIs_sel_linear_87
+```
+
+##### 1988
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_linear_88) coef(sel_linear_88)[2]
+b <- car::Boot(sel_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_linear_88) coef(sel_linear_88)[3]
+b <- car::Boot(sel_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_linear_88) coef(sel_linear_88)[4]
+b <- car::Boot(sel_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_linear_88) coef(sel_linear_88)[5]
+b <- car::Boot(sel_linear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_linear_88 <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,])
+)
+colnames(BCIs_sel_linear_88)<-c("lower","upper")
+rownames(BCIs_sel_linear_88)<-c("avFD_std","var_std","skew_std","kurt_std")
+save(BCIs_sel_linear_88,file="output/BCIs_sel_linear_88.RData")
+```
+
+```{r}
+BCIs_sel_linear_88
+```
+
+##### 1989
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std
+slp <- function(sel_linear_89) coef(sel_linear_89)[2]
+b <- car::Boot(sel_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std
+slp <- function(sel_linear_89) coef(sel_linear_89)[3]
+b <- car::Boot(sel_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std
+slp <- function(sel_linear_89) coef(sel_linear_89)[4]
+b <- car::Boot(sel_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std
+slp <- function(sel_linear_89) coef(sel_linear_89)[5]
+b <- car::Boot(sel_linear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_linear_89 <- cbind(
+  rbind(avFD_std_ci[1,],var_std_ci[1,], skew_std_ci[1,], kurt_std_ci[1,]),
+  rbind(avFD_std_ci[2,],var_std_ci[2,], skew_std_ci[2,], kurt_std_ci[2,])
+)
+colnames(BCIs_sel_linear_89)<-c("lower","upper")
+rownames(BCIs_sel_linear_89)<-c("avFD_std","var_std","skew_std","kurt_std")
+save(BCIs_sel_linear_89,file="output/BCIs_sel_linear_89.RData")
+```
+
+```{r}
+BCIs_sel_linear_89
+```
+
+### Non-linear effects
+
+```{r}
+sel_nonlinear_87<-lm(fitness_rel~avFD_std+var_std+
+                           skew_std+kurt_std+
+                           I(avFD_std^2)+I(var_std^2)+
+                           I(skew_std^2)+I(kurt_std^2),
+                         subset(data_ids,year==1987&
+                                  !is.na(avFD_std)&!is.na(var_std)&
+                                  !is.na(skew_std)&!is.na(kurt_std)))
+sel_nonlinear_88<-lm(fitness_rel~avFD_std+var_std+
+                           skew_std+kurt_std+
+                           I(avFD_std^2)+I(var_std^2)+
+                           I(skew_std^2)+I(kurt_std^2),
+                         subset(data_ids,year==1988&
+                                  !is.na(avFD_std)&!is.na(var_std)&
+                                  !is.na(skew_std)&!is.na(kurt_std)))
+sel_nonlinear_89<-lm(fitness_rel~avFD_std+var_std+
+                           skew_std+kurt_std+
+                           I(avFD_std^2)+I(var_std^2)+
+                           I(skew_std^2)+I(kurt_std^2),
+                           subset(data_ids,year==1989&
+                                    !is.na(avFD_std)&!is.na(var_std)&
+                                    !is.na(skew_std)&!is.na(kurt_std)))
+tab_model(sel_nonlinear_87,sel_nonlinear_88,sel_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Selection, non-linear effects, without n_fl")
+Anova(sel_nonlinear_87)
+Anova(sel_nonlinear_88)
+Anova(sel_nonlinear_89)
+```
+
+#### BCA intervals
+
+##### 1987
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nonlinear_87) coef(sel_nonlinear_87)[6]
+b <- car::Boot(sel_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nonlinear_87) coef(sel_nonlinear_87)[7]
+b <- car::Boot(sel_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nonlinear_87) coef(sel_nonlinear_87)[8]
+b <- car::Boot(sel_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nonlinear_87) coef(sel_nonlinear_87)[9]
+b <- car::Boot(sel_nonlinear_87,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nonlinear_87<-cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,])
+)
+colnames(BCIs_sel_nonlinear_87)<-c("lower","upper")
+rownames(BCIs_sel_nonlinear_87)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2")
+save(BCIs_sel_nonlinear_87,file="output/BCIs_sel_nonlinear_87.RData")
+```
+
+```{r}
+BCIs_sel_nonlinear_87
+```
+
+##### 1988
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nonlinear_88) coef(sel_nonlinear_88)[6]
+b <- car::Boot(sel_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nonlinear_88) coef(sel_nonlinear_88)[7]
+b <- car::Boot(sel_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nonlinear_88) coef(sel_nonlinear_88)[8]
+b <- car::Boot(sel_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nonlinear_88) coef(sel_nonlinear_88)[9]
+b <- car::Boot(sel_nonlinear_88,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nonlinear_88<-cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,])
+)
+colnames(BCIs_sel_nonlinear_88)<-c("lower","upper")
+rownames(BCIs_sel_nonlinear_88)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2")
+save(BCIs_sel_nonlinear_88,file="output/BCIs_sel_nonlinear_88.RData")
+```
+
+```{r}
+BCIs_sel_nonlinear_88
+```
+
+##### 1989
+
+Only for non-linear terms
+
+```{r eval=FALSE, include=FALSE}
+# avFD_std2
+slp <- function(sel_nonlinear_89) coef(sel_nonlinear_89)[6]
+b <- car::Boot(sel_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+avFD_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# var_std2
+slp <- function(sel_nonlinear_89) coef(sel_nonlinear_89)[7]
+b <- car::Boot(sel_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+var_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# skew_std2
+slp <- function(sel_nonlinear_89) coef(sel_nonlinear_89)[8]
+b <- car::Boot(sel_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+skew_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# kurt_std2
+slp <- function(sel_nonlinear_89) coef(sel_nonlinear_89)[9]
+b <- car::Boot(sel_nonlinear_89,slp, R=10000) # note the capital B
+b1 <- boot::boot.ci(b,type="bca")
+kurt_std2_ci <- as.data.frame(b1$bca[1,4:5])
+rm(slp, b, b1)
+```
+
+```{r eval=FALSE, include=FALSE}
+# Save confidence intervals as a table
+BCIs_sel_nonlinear_89<-cbind(
+  rbind(avFD_std2_ci[1,],var_std2_ci[1,], skew_std2_ci[1,], kurt_std2_ci[1,]),
+  rbind(avFD_std2_ci[2,],var_std2_ci[2,], skew_std2_ci[2,], kurt_std2_ci[2,])
+)
+colnames(BCIs_sel_nonlinear_89)<-c("lower","upper")
+rownames(BCIs_sel_nonlinear_89)<-c("avFD_std2","var_std2","skew_std2",
+                                    "kurt_std2")
+save(BCIs_sel_nonlinear_89,file="output/BCIs_sel_nonlinear_89.RData")
+```
+
+```{r}
+BCIs_sel_nonlinear_89
+```
+
+# Q3: Effects of within-individual variation on fitness components
+
+## Appendix 12: Global models fruit initiation, fruit maturation and proportion of seeds escaping predation
+
+### Fruit initiation
+
+Using (within-year) standardized traits.
+
+#### Linear effects
+
+```{r}
+fr_init_linear<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~avFD_std+var_std+
+                      skew_std+kurt_std+year+ 
+                      # Include main effect of year here
+                      # but not in selection models!
+                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
+                    data_ids,family="binomial")
+tab_model(fr_init_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit initiation, linear effects"))
+Anova(fr_init_linear) # Use type II (now) or III?
+check_collinearity(glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~avFD_std+var_std+
+                         skew_std+kurt_std+year,
+                       data_ids,family="binomial"))
+```
+
+#### Non-linear effects
+
+```{r}
+fr_init_nonlinear<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std+year+ 
+                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
+                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
+                         I(avFD_std^2):year+I(var_std^2):year+
+                         I(skew_std^2):year+I(kurt_std^2):year,
+                       data_ids,family="binomial")
+tab_model(fr_init_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit initiation, non linear effects"))
+Anova(fr_init_nonlinear) # Use type II (now) or III?
+```
+
+### Fruit maturation
+
+Using (within-year) standardized traits.
+
+#### Linear effects
+
+```{r}
+fr_mat_linear<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~avFD_std+var_std+
+                      skew_std+kurt_std+year+ 
+                      # Include main effect of year here
+                      # but not in selection models!
+                      avFD_std:year+var_std:year+skew_std:year+kurt_std:year,
+                    data_ids,family="binomial")
+tab_model(fr_mat_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit maturation, linear effects"))
+Anova(fr_mat_linear) # Use type II (now) or III?
+check_collinearity(glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~avFD_std+var_std+
+                         skew_std+kurt_std+year,
+                       data_ids,family="binomial"))
+```
+
+#### Non-linear effects
+
+```{r}
+fr_mat_nonlinear<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std+year+ 
+                         avFD_std:year+var_std:year+skew_std:year+kurt_std:year+
+                         I(avFD_std^2)+I(var_std^2)+I(skew_std^2)+I(kurt_std^2)+
+                         I(avFD_std^2):year+I(var_std^2):year+
+                         I(skew_std^2):year+I(kurt_std^2):year,
+                       data_ids,family="binomial")
+tab_model(fr_mat_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Fruit maturation, non linear effects"))
+Anova(fr_mat_nonlinear) # Use type II (now) or III?
+```
+
+### Proportion of seeds escaping predation
+
+Using (within-year) standardized traits.
+
+#### Linear effects
+
+```{r}
+seed_escpred_linear<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                        pr_seeds=round(n_preyed_seed))~
+                          avFD_std+var_std+skew_std+kurt_std+year+ 
+                          avFD_std:year+var_std:year+
+                          skew_std:year+kurt_std:year,
+                        data_ids,family="binomial")
+tab_model(seed_escpred_linear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Seeds escaping predation, linear effects"))
+Anova(seed_escpred_linear)
+check_collinearity(glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                        pr_seeds=round(n_preyed_seed))~
+                          avFD_std+var_std+skew_std+kurt_std+year,
+                        data_ids,family="binomial"))
+```
+
+According to Anova, differences among years in the effects of avFD and skew.
+
+#### Non-linear effects
+
+```{r}
+seed_escpred_nonlinear<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                        pr_seeds=round(n_preyed_seed))~
+                          avFD_std+var_std+skew_std+kurt_std+year+ 
+                          avFD_std:year+var_std:year+
+                          skew_std:year+kurt_std:year+
+                          I(avFD_std^2)+I(var_std^2)+
+                          I(skew_std^2)+I(kurt_std^2)+
+                          I(avFD_std^2):year+I(var_std^2):year+
+                          I(skew_std^2):year+I(kurt_std^2):year,
+                        data_ids,family="binomial")
+tab_model(seed_escpred_nonlinear,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("Seeds escaping predation, non linear effects"))
+Anova(seed_escpred_nonlinear) # Use type II (now) or III?
+```
+
+Significant non-linear effects according to Anova: I(var_std^2), I(skew_std^2), year:I(avFD_std^2), year:I(skew_std^2)
+
+## Appendix 13: Yearly models fruit initiation
+
+### Linear effects
+
+```{r}
+fr_init_linear_87<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                       subset(data_ids,year==1987),family="binomial")
+fr_init_linear_88<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1988),family="binomial")
+fr_init_linear_89<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_init_linear_87,fr_init_linear_88,fr_init_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit initiation, linear effects")
+check_collinearity(fr_init_linear_87)
+check_collinearity(fr_init_linear_88)
+check_collinearity(fr_init_linear_89)
+Anova(fr_init_linear_87)
+Anova(fr_init_linear_88)
+Anova(fr_init_linear_89) 
+```
+
+### Non-linear effects
+
+```{r}
+fr_init_nonlinear_87<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                          subset(data_ids,year==1987),family="binomial")
+fr_init_nonlinear_88<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1988),family="binomial")
+fr_init_nonlinear_89<-glm(cbind(fr_init=n_init_fr,
+                fr_no_init=n_fl-n_init_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_init_nonlinear_87,fr_init_nonlinear_88,fr_init_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit initiation, nonlinear effects")
+Anova(fr_init_nonlinear_87)
+Anova(fr_init_nonlinear_88)
+Anova(fr_init_nonlinear_89) 
+```
+
+## Appendix 14: Effects on fruit initiation
+
+```{r}
+coefs_fr_init_linear<-rbind(
+  tidy(fr_init_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
+  tidy(fr_init_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
+  tidy(fr_init_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=term,
+         type=as.factor("linear"))
+coefs_fr_init_nonlinear<-rbind(
+  tidy(fr_init_nonlinear_87)[6:9,]%>%mutate(year=as.factor("1987")),
+  tidy(fr_init_nonlinear_88)[6:9,]%>%mutate(year=as.factor("1988")),
+  tidy(fr_init_nonlinear_89)[6:9,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
+         type=as.factor("nonlinear"))
+```
+
+```{r}
+prediction_fr_init_linear<-rbind(rbind(tibble(ggpredict(fr_init_linear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_linear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_linear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(fr_init_linear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_linear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_linear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(fr_init_linear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_linear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_linear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(fr_init_linear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_linear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_linear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="fr_init",type="linear")%>%
+  left_join(coefs_fr_init_linear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+
+prediction_fr_init_nonlinear<-rbind(rbind(tibble(ggpredict(fr_init_nonlinear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_nonlinear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_nonlinear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(fr_init_nonlinear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_nonlinear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_nonlinear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(fr_init_nonlinear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_nonlinear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_nonlinear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(fr_init_nonlinear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_init_nonlinear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_init_nonlinear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="fr_init",type="nonlinear")%>%
+  left_join(coefs_fr_init_nonlinear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+prediction_fr_init<-rbind(prediction_fr_init_linear,
+                                 prediction_fr_init_nonlinear)%>%
+  mutate(predictor=factor(predictor,
+                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
+```
+
+```{r}
+Appendix14<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_init%>%
+                  filter(predictor=="kurt_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_init%>%
+                filter(predictor=="kurt_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_init,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=fr_init),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob(
+    "Fruit initiation (proportion of flowers that initiated fruits)",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+  )
+ggsave(file="output/figures/Appendix14.tiff",plot=Appendix14,width=10,height=10)
+```
+
+
+## Appendix 15: Yearly models proportion of seeds escaping predation
+
+### Linear effects
+
+```{r}
+seed_escpred_linear_87<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                                  pr_seeds=round(n_preyed_seed))~
+                              avFD_std+var_std+skew_std+kurt_std,
+                            subset(data_ids,year==1987&n_seed>0),
+                            family="binomial")
+data_seed_esc_pred_88<-subset(data_ids,year==1988&n_seed>0&
+                                !is.na(avFD_std)&!is.na(var_std)&
+                                !is.na(skew_std)&!is.na(kurt_std))
+seed_escpred_linear_88<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                                  pr_seeds=round(n_preyed_seed))~
+                              avFD_std+var_std+skew_std+kurt_std,
+                            data_seed_esc_pred_88,
+                            family="binomial")
+seed_escpred_linear_89<-glm(cbind(npr_seeds=round(n_seed)-round(n_preyed_seed),
+                                  pr_seeds=round(n_preyed_seed))~
+                              avFD_std+var_std+skew_std+kurt_std,
+                            subset(data_ids,year==1989&n_seed>0),
+                            family="binomial")
+tab_model(seed_escpred_linear_87,seed_escpred_linear_88,seed_escpred_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Seeds escaping predation, linear effects")
+check_collinearity(seed_escpred_linear_87)
+check_collinearity(seed_escpred_linear_88)
+check_collinearity(seed_escpred_linear_89)
+Anova(seed_escpred_linear_87)
+Anova(seed_escpred_linear_88)
+Anova(seed_escpred_linear_89)
+```
+
+#### Non-linear effects
+
+```{r}
+seed_escpred_nonlinear_87<-glm(cbind(npr_seeds=round(n_seed)-
+                                       round(n_preyed_seed),
+                                     pr_seeds=round(n_preyed_seed))~
+                                 avFD_std+var_std+skew_std+kurt_std+
+                                 I(avFD_std^2)+I(var_std^2)+
+                                 I(skew_std^2)+I(kurt_std^2),
+                               subset(data_ids,year==1987&n_seed>0),
+                               family="binomial")
+seed_escpred_nonlinear_88<-glm(cbind(npr_seeds=round(n_seed)-
+                                       round(n_preyed_seed),
+                                     pr_seeds=round(n_preyed_seed))~
+                                 avFD_std+var_std+skew_std+kurt_std+
+                                 I(avFD_std^2)+I(var_std^2)+
+                                 I(skew_std^2)+I(kurt_std^2),
+                               subset(data_ids,year==1988&n_seed>0),
+                               family="binomial")
+seed_escpred_nonlinear_89<-glm(cbind(npr_seeds=round(n_seed)-
+                                       round(n_preyed_seed),
+                                     pr_seeds=round(n_preyed_seed))~
+                                 avFD_std+var_std+skew_std+kurt_std+
+                                 I(avFD_std^2)+I(var_std^2)+
+                                 I(skew_std^2)+I(kurt_std^2),
+                               subset(data_ids,year==1989&n_seed>0),
+                               family="binomial")
+# nobs(seed_escpred_nonlinear_89)/
+# dim(model.matrix(seed_escpred_nonlinear_89))[2] = 7.2
+# Careful! Only case when this ratio is <10
+tab_model(seed_escpred_nonlinear_87,seed_escpred_nonlinear_88,
+          seed_escpred_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Seeds escaping predation, nonlinear effects")
+Anova(seed_escpred_nonlinear_87)
+Anova(seed_escpred_nonlinear_88)
+Anova(seed_escpred_nonlinear_89) 
+```
+
+## Appendix 16: Effects on proportion of seeds escaping predation
+
+```{r}
+coefs_seed_escpred_linear<-rbind(
+  tidy(seed_escpred_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
+  tidy(seed_escpred_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
+  tidy(seed_escpred_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=term,
+         type=as.factor("linear"))
+coefs_seed_escpred_nonlinear<-rbind(
+  tidy(seed_escpred_nonlinear_87)[6:9,]%>%mutate(year=as.factor("1987")),
+  tidy(seed_escpred_nonlinear_88)[6:9,]%>%mutate(year=as.factor("1988")),
+  tidy(seed_escpred_nonlinear_89)[6:9,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
+         type=as.factor("nonlinear"))
+```
+
+```{r}
+prediction_seed_escpred_linear<-rbind(rbind(tibble(ggpredict(seed_escpred_linear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_linear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_linear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(seed_escpred_linear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_linear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_linear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(seed_escpred_linear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_linear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_linear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(seed_escpred_linear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_linear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_linear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="seed_escpred",type="linear")%>%
+  left_join(coefs_seed_escpred_linear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+
+prediction_seed_escpred_nonlinear<-rbind(rbind(tibble(ggpredict(seed_escpred_nonlinear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_nonlinear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_nonlinear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(seed_escpred_nonlinear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_nonlinear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_nonlinear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(seed_escpred_nonlinear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_nonlinear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_nonlinear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(seed_escpred_nonlinear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(seed_escpred_nonlinear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(seed_escpred_nonlinear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="seed_escpred",type="nonlinear")%>%
+  left_join(coefs_seed_escpred_nonlinear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+prediction_seed_escpred<-rbind(prediction_seed_escpred_linear,
+                                 prediction_seed_escpred_nonlinear)%>%
+  mutate(predictor=factor(predictor,
+                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
+```
+
+```{r}
+Appendix16<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_seed_escpred%>%
+                  filter(predictor=="kurt_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_seed_escpred%>%
+                filter(predictor=="kurt_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,prop_seed_preyed,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=prop_seed_preyed),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob(
+    "Proportion of seeds escaping predation",
+    gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+)
+ggsave(file="output/figures/Appendix16.tiff",plot=Appendix16,width=10,height=10)
+```
+
+## Appendix 17: Yearly models fruit maturation
+
+### Linear effects
+
+```{r}
+fr_mat_linear_87<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                       subset(data_ids,year==1987),family="binomial")
+fr_mat_linear_88<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1988),family="binomial")
+fr_mat_linear_89<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                         avFD_std+var_std+skew_std+kurt_std,
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_mat_linear_87,fr_mat_linear_88,fr_mat_linear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit maturation, linear effects")
+check_collinearity(fr_mat_linear_87)
+check_collinearity(fr_mat_linear_88)
+check_collinearity(fr_mat_linear_89)
+Anova(fr_mat_linear_87)
+Anova(fr_mat_linear_88)
+Anova(fr_mat_linear_89) 
+```
+
+### Non-linear effects
+
+```{r}
+fr_mat_nonlinear_87<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                          subset(data_ids,year==1987),family="binomial")
+fr_mat_nonlinear_88<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1988),family="binomial")
+fr_mat_nonlinear_89<-glm(cbind(fr_mat=n_mat_intact_fr,
+                fr_no_mat=n_init_fr-n_mat_intact_fr)~
+                            avFD_std+var_std+skew_std+kurt_std+
+                            I(avFD_std^2)+I(var_std^2)+
+                            I(skew_std^2)+I(kurt_std^2),
+                    subset(data_ids,year==1989),family="binomial")
+tab_model(fr_mat_nonlinear_87,fr_mat_nonlinear_88,fr_mat_nonlinear_89,
+          transform=NULL,show.ci=F,show.se=T,show.stat=T,digits=3,
+          dv.labels=c("1987","1988","1989"),
+          title="Fruit maturation, nonlinear effects")
+Anova(fr_mat_nonlinear_87)
+Anova(fr_mat_nonlinear_88)
+Anova(fr_mat_nonlinear_89) 
+```
+
+## Appendix 18: Effects on fruit maturation
+
+```{r}
+coefs_fr_mat_linear<-rbind(
+  tidy(fr_mat_linear_87)[2:5,]%>%mutate(year=as.factor("1987")),
+  tidy(fr_mat_linear_88)[2:5,]%>%mutate(year=as.factor("1988")),
+  tidy(fr_mat_linear_89)[2:5,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=term,
+         type=as.factor("linear"))
+coefs_fr_mat_nonlinear<-rbind(
+  tidy(fr_mat_nonlinear_87)[6:9,]%>%mutate(year=as.factor("1987")),
+  tidy(fr_mat_nonlinear_88)[6:9,]%>%mutate(year=as.factor("1988")),
+  tidy(fr_mat_nonlinear_89)[6:9,]%>%mutate(year=as.factor("1989"))
+  )%>%
+  mutate(signif=as.factor(ifelse(p.value>0.05,0,1)),
+         coef=format(round(estimate,3),nsmall=3),
+         star=ifelse(signif==1,"*","  "),
+         print=paste(coef,star),
+         predictor=str_extract(term, "(?<=I\\().*?(?=\\^2\\))"),
+         type=as.factor("nonlinear"))
+```
+
+```{r}
+prediction_fr_mat_linear<-rbind(rbind(tibble(ggpredict(fr_mat_linear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_linear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_linear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(fr_mat_linear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_linear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_linear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(fr_mat_linear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_linear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_linear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(fr_mat_linear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_linear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_linear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="fr_mat",type="linear")%>%
+  left_join(coefs_fr_mat_linear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+
+prediction_fr_mat_nonlinear<-rbind(rbind(tibble(ggpredict(fr_mat_nonlinear_87,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_nonlinear_88,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_nonlinear_89,
+                                           terms=c("avFD_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="avFD_std"), # avFD_std
+                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_nonlinear_88,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_nonlinear_89,
+                                           terms=c("var_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="var_std"), # var_std
+                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_nonlinear_88,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_nonlinear_89,
+                                           terms=c("skew_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="skew_std"), # skew_std
+                    rbind(tibble(ggpredict(fr_mat_nonlinear_87,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1987)),
+                          tibble(ggpredict(fr_mat_nonlinear_88,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1988)),
+                          tibble(ggpredict(fr_mat_nonlinear_89,
+                                           terms=c("kurt_std [all]")))%>%
+                            mutate(year=as.factor(1989)))%>%
+                      mutate(predictor="kurt_std"))%>% # kurt_std
+  mutate(response="fr_mat",type="nonlinear")%>%
+  left_join(coefs_fr_mat_nonlinear%>%
+              dplyr::select(predictor,coef,year,signif,star,print,type))
+prediction_fr_mat<-rbind(prediction_fr_mat_linear,
+                                 prediction_fr_mat_nonlinear)%>%
+  mutate(predictor=factor(predictor,
+                          levels=c("avFD_std","var_std","skew_std","kurt_std")))
+```
+
+```{r}
+Appendix18<-grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,avFD_std)%>%
+                 pivot_longer(cols=avFD_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("avFD_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,var_std)%>%
+                 pivot_longer(cols=var_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("var_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,skew_std)%>%
+                 pivot_longer(cols=skew_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("skew_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=prediction_fr_mat%>%
+                  filter(predictor=="kurt_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=type),
+                alpha=0.3)+
+    geom_line(data=prediction_fr_mat%>%
+                filter(predictor=="kurt_std"),
+              aes(x=x,y=predicted,linetype=signif,color=type),
+              linewidth=1)+
+    geom_point(data=data_ids%>%
+                 dplyr::select(year,fr_mat,kurt_std)%>%
+                 pivot_longer(cols=kurt_std,
+                              names_to="predictor",
+                              values_to="value_predictor")%>%
+                 mutate(predictor=factor(predictor,
+                                         levels=c("kurt_std"))),
+               aes(x=value_predictor,y=fr_mat),
+               size=2,alpha=0.3)+
+    scale_linetype_manual(values=c("dotted", "solid"))+
+    ylab(NULL)+xlab(NULL)+my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob(
+    "Fruit maturation (proportion of initiated fruits that developed to mature fruits)",
+    gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                                     1988                                                        1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+)
+ggsave(file="output/figures/Appendix18.tiff",plot=Appendix18,width=10,height=10)
+```
+
+
+## Figure 4: Effects on fruit initiation, fruit maturation and proportion of seeds escaping predation
+
+```{r}
+data_figure4<-rbind(prediction_fr_init,
+      prediction_fr_mat,
+      prediction_seed_escpred)%>%
+  # Remove non-significant effects
+  filter(signif==1)%>%
+  # Remove linear effects when quadratic effect is significant
+  # for same year/response/predictor combination
+  # (only plot quadratic effect in these cases)
+  filter(!(year==1988&response=="fr_init"&predictor=="avFD_std"&
+             type=="linear"))%>%
+  filter(!(year==1988&response=="seed_escpred"&predictor=="avFD_std"&
+             type=="linear"))%>%
+  filter(!(year==1987&response=="seed_escpred"&predictor=="skew_std"&
+             type=="linear"))
+```
+
+```{r}
+legend_fig4<-get_legend(ggplot()+
+  # geom_point(data=data_ids%>%
+  #              dplyr::select(year,fr_init,avFD_std,var_std,skew_std,kurt_std)%>%
+  #              pivot_longer(cols=avFD_std:kurt_std,
+  #                           names_to="predictor",values_to="value_predictor")%>%
+  #              mutate(predictor=factor(predictor,
+  #                                      levels=c("avFD_std","var_std",
+  #                                               "skew_std","kurt_std"))),
+  #            aes(x=value_predictor,y=fr_init),
+  #            size=2,alpha=0.3)+
+  facet_grid2(c("predictor","year"),
+              labeller=labeller(predictor=predictor.labs),
+              scales = "free", independent = "x")+
+  geom_ribbon(data=data_figure4,
+              aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+              alpha=0.3)+
+  geom_line(data=data_figure4,
+            aes(x=x,y=predicted,linetype=type,color=response),
+            linewidth=1)+
+  scale_linetype_manual(values=c("solid","dotted"))+
+  scale_y_continuous(limits=c(0,1))+
+  ylab("Proportion")+
+  xlab("Value of the moment")+
+  my_theme_legend()+theme(legend.position="top")+
+  scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                    name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+  scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                     name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+  guides(linetype=F))
+new_row <- tibble(x=0,predicted=0,std.error=0,conf.low=0,conf.high=0,
+                  group="1",year="1988",predictor="kurt_std",
+                  response="fr_init",type="linear",coef="0",signif="0",
+                  star="",print="")
+
+fig4<-grid.arrange(
+  legend_fig4,
+  grid.arrange(
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=data_figure4%>%
+                  filter(predictor=="avFD_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=data_figure4%>%
+                filter(predictor=="avFD_std"),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=data_figure4%>%
+                  filter(predictor=="var_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=data_figure4%>%
+                filter(predictor=="var_std"),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=data_figure4%>%
+                  filter(predictor=="skew_std"),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=data_figure4%>%
+                filter(predictor=="skew_std"),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ggplot()+
+    facet_grid2(c("predictor","year"), 
+                labeller=labeller(predictor=predictor.labs), 
+                scales = "fixed")+
+    geom_ribbon(data=bind_rows(data_figure4%>%
+                                 filter(predictor=="kurt_std"),
+                               new_row),
+                aes(x=x,y=predicted,ymin=conf.low,ymax=conf.high,fill=response),
+                alpha=0.3)+
+    geom_line(data=bind_rows(data_figure4%>%
+                               filter(predictor=="kurt_std"),
+                             new_row),
+              aes(x=x,y=predicted,linetype=type,color=response),
+              linewidth=1)+
+    scale_linetype_manual(values=c("solid","dotted"))+
+    scale_y_continuous(limits=c(0,1))+
+    ylab("Proportion")+
+    xlab("Value of the moment")+
+    my_theme_legend()+theme(legend.position="top")+
+    scale_fill_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                      name=NULL,
+                      labels = c("Fruit initiation","Fruit maturation",
+                                 "Seeds escaping predation"))+
+    scale_color_manual(values=c("#E69F00", "#56B4E9", "#009E73"),
+                       name=NULL,
+                       labels = c("Fruit initiation","Fruit maturation",
+                                  "Seeds escaping predation"))+
+    guides(linetype=F)+ylab(NULL)+xlab(NULL)+
+    my_theme()+theme(strip.text.x = element_blank()),
+  ncol=1,
+  left=textGrob("Proportion",
+                gp=gpar(fontsize=14,fontfamily="serif"),rot = 90),
+  bottom=textGrob("Value of the moment",
+                  gp=gpar(fontsize=14,fontfamily="serif")),
+  top=textGrob("       1987                                     1988                                           1989",
+               gp=gpar(fontsize=14,fontfamily="serif"))
+),
+ncol=1,heights=c(0.05,0.95)
+)
+fig4
+ggsave(file="output/figures/fig4.tiff", plot=fig4, width=8, height=10,dpi=300,
+       compression="lzw")
+```
+
+# Appendix 19: Variation in temperature and number of flowers opening
+
+```{r}
+data_hline<-data_weather%>%
+      filter(year==1987|year==1988|year==1989)%>%
+      filter(month==4|month==5)%>%
+      mutate(yday=yday(date))%>%
+      group_by(month,year)%>%
+      summarise(mean=mean(mean))
+data_weather%>%
+  filter(year==1987|year==1988|year==1989)%>%
+  filter(month==4|month==5)%>%
+  mutate(yday=yday(date))%>%
+  ggplot(aes(x=day,y=mean))+geom_line(size=1)+
+  facet_grid(rows=vars(month),cols=vars(year))+
+  ggtitle("Mean temperatures")+
+  geom_hline(data=data_hline,aes(yintercept=mean),
+             color="blue",linetype="dashed")
+```
+
+```{r}
+data_hline<-data_weather%>%
+  filter(year==1987|year==1988|year==1989)%>%
+  filter(month==4|month==5)%>%
+  mutate(yday=yday(date))%>%
+  dplyr::select(year,month,day,mean,min,max,yday)%>%
+  pivot_longer(cols=mean:max,names_to="measure",values_to="value")%>%
+  group_by(month,year,measure)%>%
+  summarise(mean=mean(value))
+data_weather%>%
+  filter(year==1987|year==1988|year==1989)%>%
+  filter(month==4|month==5)%>%
+  mutate(yday=yday(date))%>%
+  dplyr::select(year,month,day,mean,min,max,yday)%>%
+  pivot_longer(cols=mean:max,names_to="measure",values_to="value")%>%
+  ggplot(aes(x=day,y=value,color=measure))+geom_line(size=1)+
+  facet_grid(rows=vars(month),cols=vars(year))+
+  ggtitle("Temperatures")+
+  geom_hline(data=data_hline,aes(yintercept=mean,color=measure),
+             linetype="dashed")
+```
+
+```{r}
+Appendix19<-grid.arrange(
+  ggplot(data=data_weather%>%filter(year==1987|year==1988|year==1989)%>%
+           filter(month==4|month==5|month==6)%>%
+           mutate(yday=yday(date))%>%
+           dplyr::select(year,month,date,yday,mean,min,max),
+         aes(x=yday,y=mean,ymin=min,ymax=max))+
+    facet_grid(cols=vars(year),scales="free")+
+    geom_ribbon(fill="lightskyblue1")+geom_line()+my_theme()+
+    ylab("Temperature\n(ºC)")+xlab("Day of year")+ggtitle("A)")+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+
+    geom_vline(xintercept=121,linetype="dashed")+
+    geom_vline(xintercept=152,linetype="dashed"),
+  ggplot(data=data_weather%>%filter(year==1987|year==1988|year==1989)%>%        
+           filter(month==4|month==5|month==6)%>%mutate(yday=yday(date))%>%
+           dplyr::select(year,yday,month,mean,min,max)%>%
+           group_by(year,month)%>%
+           summarise(mean_mean=mean(mean),mean_min=mean(min),mean_max=mean(max),
+                     se_mean=std.error(mean),se_min=std.error(min),
+                     se_max=std.error(max))%>%
+           pivot_longer(-c(year,month),names_to=c("stat","measure"),
+                        names_sep="_",values_to="value")%>%
+           pivot_wider(names_from="stat",values_from="value")%>%
+           filter(measure=="mean"),
+         aes(x=year,y=mean,ymin=mean-se,ymax=mean+se,color=factor(month)))+
+    geom_jitter(position=position_dodge(width=0.75))+
+    geom_errorbar(position=position_dodge(width=0.75),width=0.3)+
+    my_theme_legend()+theme(legend.position="top")+
+    ylab("Mean temperature (ºC)")+xlab("Year")+ggtitle("B)")+
+    theme(plot.title = element_text(hjust =-0.05,vjust=-6))+
+    scale_x_continuous(breaks=c(1987,1988,1989))+
+    scale_y_continuous(limits=c(2,18))+
+    scale_color_discrete(name=NULL,labels=c("April","May","June")),
+  ggplot(data=data_id_flowers%>%dplyr::select(id,opening_date_c)%>%
+           mutate(year=year(opening_date_c),yday=yday(opening_date_c),
+                  date=date(opening_date_c))%>%
+           group_by(year,date,yday)%>%
+           summarise(n_opening=n()),
+         aes(x=yday,y=n_opening))+
+    facet_grid(cols=vars(year),scales="free")+
+    geom_col(fill="orchid")+my_theme()+
+    ylab("Number offlowers\nopening")+xlab(NULL)+ggtitle("C)")+
+    theme(plot.title = element_text(hjust =-0.09,vjust=-6))+
+    scale_x_continuous(limits=c(90,180))+
+    geom_vline(xintercept=121,linetype="dashed")+
+    geom_vline(xintercept=152,linetype="dashed"),
+  nrow=3
+)
+ggsave(file="output/figures/Appendix19.tiff", plot=Appendix19,
+       width=10, height=12)
+ggsave(file="output/figures/Appendix19.svg", plot=Appendix19,
+       width=10, height=12) # To add letters for significant differences in B)
+```
+
+
+```{r}
+data_weather_8789<-data_weather%>%
+  filter(year==1987|year==1988|year==1989)%>%
+  filter(month==4|month==5|month==6)%>%
+  mutate(year=factor(year))
+```
+
+```{r}
+model_april_mean<-lm(mean~year,subset(data_weather_8789,month==4))
+model_may_mean<-lm(mean~year,subset(data_weather_8789,month==5))
+model_june_mean<-lm(mean~year,subset(data_weather_8789,month==6))
+```
+
+```{r}
+summary(model_april_mean)
+Anova(model_april_mean) # No differences among years in April mean temp
+summary(model_may_mean)
+Anova(model_may_mean) # Differences among years in May mean temp
+summary(model_june_mean)
+Anova(model_june_mean) # Differences among years in June mean temp
+```
+
+```{r}
+letters_april_mean<-as.data.frame.list(
+  multcompLetters4(aov(mean~year,subset(data_weather_8789,month==4)),
+                   TukeyHSD(aov(mean~year,
+                                subset(data_weather_8789,month==4))))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_may_mean<-as.data.frame.list(
+  multcompLetters4(aov(mean~year,subset(data_weather_8789,month==5)),
+                   TukeyHSD(aov(mean~year,
+                                subset(data_weather_8789,month==5))))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_june_mean<-as.data.frame.list(
+  multcompLetters4(aov(mean~year,subset(data_weather_8789,month==6)),
+                   TukeyHSD(aov(mean~year,
+                                subset(data_weather_8789,month==6))))$year)%>%
+  dplyr::select(Letters)%>%
+  rownames_to_column(var="year")
+letters_april_mean
+letters_may_mean
+letters_june_mean
+```
+
+
+
+
+
+
+
+
+# Session info
+
+```{r}
+sessionInfo()
+```
